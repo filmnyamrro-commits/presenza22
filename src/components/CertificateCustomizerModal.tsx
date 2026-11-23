@@ -26,6 +26,10 @@ import type {
   OrganizationBranding,
 } from '../types';
 import {
+  formatCertificateIssueDate,
+  formatLocalDateYmd,
+} from '../utils/dateTime';
+import {
   CERTIFICATE_TERM_OPTIONS,
   DEFAULT_TERM_BEST_CATEGORIES,
   resolveBestTermLabel,
@@ -133,6 +137,9 @@ export default function CertificateCustomizerModal({
     draft.principalName.trim() || sampleEvent?.principalName?.trim() || '';
   const previewPrincipalTitle = draft.principalTitle.trim() || 'Principal';
   const previewOrgName = branding?.organizationName?.trim() || 'Your School / Company';
+  const previewIssueDate = formatCertificateIssueDate(
+    formatLocalDateYmd(new Date())
+  );
 
   // Canvas pointer dragging on A4 preview
   useEffect(() => {
@@ -873,13 +880,18 @@ export default function CertificateCustomizerModal({
                         : 'hover:ring-1 hover:ring-blue-400 rounded z-10'
                     }`}
                   >
-                    {draft.principalSignatureDataUrl && (
-                      <img
-                        src={draft.principalSignatureDataUrl}
-                        alt="Principal signature"
-                        className="mx-auto mb-0.5 max-h-6 sm:max-h-8 max-w-[78%] object-contain pointer-events-none"
-                      />
-                    )}
+                    <div className="text-[clamp(5px,0.72vw,8px)] text-slate-700 whitespace-nowrap mb-0.5">
+                      Jakarta, {previewIssueDate}
+                    </div>
+                    <div className="min-h-[16px] sm:min-h-[24px] flex items-end justify-center mb-0.5">
+                      {draft.principalSignatureDataUrl && (
+                        <img
+                          src={draft.principalSignatureDataUrl}
+                          alt="Principal signature"
+                          className="mx-auto max-h-6 sm:max-h-8 max-w-[78%] object-contain pointer-events-none"
+                        />
+                      )}
+                    </div>
                     {previewPrincipalName && (
                       <div
                         className="text-[clamp(5.5px,0.85vw,9px)] font-bold truncate"

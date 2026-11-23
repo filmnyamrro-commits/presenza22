@@ -13,6 +13,7 @@ import type {
   RecognitionCategory,
   RecognitionTemplateConfig,
 } from '../types';
+import { formatCertificateIssueDate, formatLocalDateYmd } from './dateTime';
 import {
   DEFAULT_TERM_BEST_CATEGORIES,
   interpolateRecognitionWording,
@@ -1167,10 +1168,13 @@ function drawCertificatePage(
     doc.text(picPdTitleText, cx, cy + 5, { align: 'center' });
   }
 
-  // 15. Principal Block + Optional Digital Signature
+  // 15. Principal Block + City & Issued Date + Optional Digital Signature
   if (el.principalBlock.visible) {
     const cx = el.principalBlock.x;
     const cy = el.principalBlock.y;
+    const big5IssueDate = formatCertificateIssueDate(
+      formatLocalDateYmd(new Date())
+    );
     doc.setDrawColor(148, 163, 184);
     doc.setLineWidth(0.4);
     doc.line(cx - 38, cy, cx + 38, cy);
@@ -1180,6 +1184,14 @@ function drawCertificatePage(
       : [];
     const principalStartY = cy - 3 - Math.max(0, principalLines.length - 1) * 4;
     const sigBottomY = principalLines.length > 0 ? principalStartY - 3.5 : cy - 2;
+    const sigTopSpaceY = sigBottomY - 14.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.2);
+    doc.setTextColor(...theme.bodyRgb);
+    doc.text(`Jakarta, ${big5IssueDate}`, cx, sigTopSpaceY, {
+      align: 'center',
+    });
 
     if (settings.principalSignatureDataUrl) {
       drawAspectContainedImage(
@@ -1188,7 +1200,7 @@ function drawCertificatePage(
         cx,
         sigBottomY,
         46,
-        14
+        13
       );
     }
 
@@ -1398,8 +1410,29 @@ function drawRecognitionCertificatePage(
     doc.rect(cx, cy, 7, 7, 'F');
   });
 
+  const formattedIssueDate = formatCertificateIssueDate(
+    cert.issueDate || cert.eventDate
+  );
+
+  // Top Left Certificate Number & Top Right Issued Date
+  if (options.showCertificateId !== false) {
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Certificate No: ${cert.certificateNumber}`, 19, 20.5, {
+      align: 'left',
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Issued: ${formattedIssueDate}`, pageW - 19, 20.5, {
+      align: 'right',
+    });
+  }
+
   // Top Header: Organization logo & name
-  let cursorY = isPortrait ? 30 : 25;
+  let cursorY = isPortrait ? 31 : 26.5;
   if (options.logoDataUrl) {
     try {
       const logoSize = isPortrait ? 16 : 14;
@@ -1511,25 +1544,21 @@ function drawRecognitionCertificatePage(
   });
   cursorY += wordingLines.length * 6.4 + 4;
 
-  // Event Context Details (Topic / Theme / Facilitator)
-  const metaParts: string[] = [];
-  if (options.showTopic !== false && cert.eventTheme?.trim()) {
-    metaParts.push(`Theme: ${cert.eventTheme.trim()}`);
-  }
-  if (options.showTopic !== false && cert.eventTopic?.trim()) {
-    metaParts.push(`Topic: ${cert.eventTopic.trim()}`);
-  }
-  if (metaParts.length > 0) {
+  // Event Context Details (Topic only — Theme omitted)
+  const topicValue = cert.eventTopic?.trim();
+  if (options.showTopic !== false && topicValue) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...primaryRgb);
-    const metaLines = doc.splitTextToSize(metaParts.join('   ·   '), maxBodyW).slice(0, 2);
+    const metaLines = doc
+      .splitTextToSize(`Topic: ${topicValue}`, maxBodyW)
+      .slice(0, 2);
     doc.text(metaLines, centerX, cursorY, { align: 'center' });
     cursorY += metaLines.length * 4.5 + 3;
   }
 
   // Footer Signature Row — Native layout provides PIC of Professional Development & Principal
-  const footerLineY = pageH - (isPortrait ? 38 : 30);
+  const footerLineY = pageH - (isPortrait ? 34 : 26);
   const sideOffset = isPortrait ? 44 : 62;
   const leftX = centerX - sideOffset;
   const rightX = centerX + sideOffset;
@@ -1558,7 +1587,7 @@ function drawRecognitionCertificatePage(
   const picNameStartY = footerLineY - 3 - Math.max(0, picNameLines.length - 1) * 3.8;
   const picSigBottomY = picNameLines.length > 0 ? picNameStartY - 3 : footerLineY - 2;
   if (picPdSig) {
-    drawAspectContainedImage(doc, picPdSig, leftX, picSigBottomY, 46, 14);
+    drawAspectContainedImage(doc, picPdSig, leftX, picSigBottomY, 44, 13);
   }
   if (picNameLines.length > 0) {
     doc.setFont('helvetica', 'bold');
@@ -1572,7 +1601,7 @@ function drawRecognitionCertificatePage(
   const picRoleLines = doc.splitTextToSize(picPdTitleText, 74).slice(0, 2);
   doc.text(picRoleLines, leftX, footerLineY + 4.5, { align: 'center' });
 
-  // Bottom Right: Principal + Signature + Customizable Name
+  // Bottom Right: City (Jakarta) & Issued Date above Principal Signature Space + Principal Name & Title
   doc.setDrawColor(148, 163, 184);
   doc.setLineWidth(0.4);
   doc.line(rightX - 36, footerLineY, rightX + 36, footerLineY);
@@ -1581,8 +1610,17 @@ function drawRecognitionCertificatePage(
     : [];
   const priNameStartY = footerLineY - 3 - Math.max(0, priNameLines.length - 1) * 3.8;
   const priSigBottomY = priNameLines.length > 0 ? priNameStartY - 3 : footerLineY - 2;
+  const priCityDateY = priSigBottomY - 15;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Jakarta, ${formattedIssueDate}`, rightX, priCityDateY, {
+    align: 'center',
+  });
+
   if (principalSig) {
-    drawAspectContainedImage(doc, principalSig, rightX, priSigBottomY, 46, 14);
+    drawAspectContainedImage(doc, principalSig, rightX, priSigBottomY, 44, 13);
   }
   if (priNameLines.length > 0) {
     doc.setFont('helvetica', 'bold');
@@ -1595,19 +1633,6 @@ function drawRecognitionCertificatePage(
   doc.setTextColor(100, 116, 139);
   const priRoleLines = doc.splitTextToSize(principalTitleText, 74).slice(0, 2);
   doc.text(priRoleLines, rightX, footerLineY + 4.5, { align: 'center' });
-
-  // Bottom Certificate Verification ID & Issue Date Strip
-  if (options.showCertificateId !== false) {
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      `Certificate ID: ${cert.certificateNumber}   ·   Issued: ${cert.issueDate || cert.eventDate}   ·   Event: ${cert.eventTitle}`,
-      centerX,
-      pageH - 16.5,
-      { align: 'center' }
-    );
-  }
 }
 
 function resolveSyncedCertificateRecord(

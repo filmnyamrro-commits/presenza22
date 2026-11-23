@@ -46,7 +46,7 @@ export default function EventQrThumbnail({
       onClick={onClick}
       title={`Open full QR poster for ${eventTitle}`}
       aria-label={`Open full QR code for ${eventTitle}`}
-      className="w-16 h-16 rounded-xl border border-slate-200 bg-white p-1 shrink-0 hover:border-blue-500 hover:ring-2 hover:ring-blue-100 transition-all flex items-center justify-center overflow-hidden"
+      className="w-14 h-14 rounded-lg border border-slate-200 bg-white p-1 shrink-0 hover:border-blue-500 hover:ring-2 hover:ring-blue-100 transition-all flex items-center justify-center overflow-hidden"
     >
       {src ? (
         <img

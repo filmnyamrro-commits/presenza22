@@ -60,7 +60,11 @@ import {
   type RecognitionFontFamily,
   type RecognitionTemplateConfig,
 } from '../types';
-import { formatLocalDateYmd, generateSafeId } from '../utils/dateTime';
+import {
+  formatCertificateIssueDate,
+  formatLocalDateYmd,
+  generateSafeId,
+} from '../utils/dateTime';
 import {
   buildCertificateDedupeKey,
   buildCertificateDocId,
@@ -197,10 +201,8 @@ interface RecognitionCertificateCanvasProps {
   recipientDepartment?: string;
   wordingText: string;
   topicText?: string;
-  themeText?: string;
   certificateNumber: string;
   issueDate: string;
-  eventTitle: string;
 }
 
 function RecognitionCertificateCanvas({
@@ -214,22 +216,16 @@ function RecognitionCertificateCanvas({
   recipientDepartment,
   wordingText,
   topicText,
-  themeText,
   certificateNumber,
   issueDate,
-  eventTitle,
 }: RecognitionCertificateCanvasProps) {
-  const metaParts: string[] = [];
-  if (template.showTopic && themeText?.trim()) {
-    metaParts.push(`Theme: ${themeText.trim()}`);
-  }
-  if (template.showTopic && topicText?.trim()) {
-    metaParts.push(`Topic: ${topicText.trim()}`);
-  }
+  const formattedIssueDate = formatCertificateIssueDate(issueDate);
+  const topicDisplay =
+    template.showTopic && topicText?.trim() ? topicText.trim() : '';
 
   return (
     <div
-      className={`w-full shadow-lg rounded-sm relative overflow-hidden flex flex-col justify-between p-6 sm:p-8 text-center transition-all mx-auto ${
+      className={`w-full shadow-lg rounded-sm relative overflow-hidden flex flex-col justify-between p-5 sm:p-7 text-center transition-all mx-auto ${
         template.orientation === 'portrait'
           ? 'max-w-[440px] aspect-[210/297]'
           : 'max-w-[680px] aspect-[297/210]'
@@ -264,44 +260,58 @@ function RecognitionCertificateCanvas({
         style={{ border: `1.5px solid ${template.accentColor}` }}
       />
 
-      <div className="relative z-10 flex flex-col items-center space-y-2 pt-1.5">
-        {logoUrl && (
-          <img
-            src={logoUrl}
-            alt="Organization logo"
-            className="h-10 w-10 object-contain"
-          />
-        )}
-        <div
-          className="text-[10px] font-bold tracking-widest uppercase"
-          style={{ color: template.accentColor }}
-        >
-          {organizerName}
-        </div>
-        <h4
-          className="text-xl sm:text-2xl font-bold tracking-tight leading-tight"
-          style={{ color: template.primaryColor }}
-        >
-          {template.title}
-        </h4>
-        {template.subtitle && (
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">
-            {template.subtitle}
-          </p>
+      {/* Top Row: Certificate Number (Top Left) & Issued Date (Top Right) */}
+      <div className="relative z-10 w-full flex flex-col items-center">
+        {template.showCertificateId && (
+          <div className="w-full flex items-center justify-between gap-2 text-[9px] sm:text-[10px] text-slate-600 px-1 pb-1">
+            <span className="font-mono-tabular font-semibold truncate">
+              Certificate No: {certificateNumber}
+            </span>
+            <span className="font-semibold whitespace-nowrap shrink-0">
+              Issued: {formattedIssueDate}
+            </span>
+          </div>
         )}
 
-        <div
-          className="mt-1 px-4 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-50/90 border"
-          style={{
-            color: template.accentColor,
-            borderColor: template.accentColor,
-          }}
-        >
-          {ribbonText}
+        <div className="flex flex-col items-center space-y-1.5 pt-0.5">
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="Organization logo"
+              className="h-9 w-9 object-contain"
+            />
+          )}
+          <div
+            className="text-[10px] font-bold tracking-widest uppercase"
+            style={{ color: template.accentColor }}
+          >
+            {organizerName}
+          </div>
+          <h4
+            className="text-xl sm:text-2xl font-bold tracking-tight leading-tight"
+            style={{ color: template.primaryColor }}
+          >
+            {template.title}
+          </h4>
+          {template.subtitle && (
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">
+              {template.subtitle}
+            </p>
+          )}
+
+          <div
+            className="mt-1 px-4 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-50/90 border"
+            style={{
+              color: template.accentColor,
+              borderColor: template.accentColor,
+            }}
+          >
+            {ribbonText}
+          </div>
         </div>
       </div>
 
-      <div className="relative z-10 my-auto py-3 space-y-2">
+      <div className="relative z-10 my-auto py-2.5 space-y-1.5">
         <p className="text-[11px] text-slate-500">
           This recognition award is proudly presented to
         </p>
@@ -323,26 +333,28 @@ function RecognitionCertificateCanvas({
         <p className="text-xs text-slate-700 leading-relaxed max-w-lg mx-auto">
           {wordingText}
         </p>
-        {metaParts.length > 0 && (
+        {topicDisplay && (
           <div
             className="text-[11px] font-bold pt-1"
             style={{ color: template.primaryColor }}
           >
-            {metaParts.join(' · ')}
+            Topic: {topicDisplay}
           </div>
         )}
       </div>
 
-      <div className="relative z-10 space-y-2.5 pb-1">
+      <div className="relative z-10 pb-1">
         <div className="grid grid-cols-2 gap-8 sm:gap-12 items-end text-[10px] max-w-lg mx-auto">
-          <div className="flex flex-col items-center">
-            {template.picPdSignatureDataUrl && (
-              <img
-                src={template.picPdSignatureDataUrl}
-                alt="PIC of Professional Development signature"
-                className="h-8 object-contain mb-1"
-              />
-            )}
+          <div className="flex flex-col items-center justify-end">
+            <div className="h-9 sm:h-10 flex items-end justify-center w-full mb-0.5">
+              {template.picPdSignatureDataUrl && (
+                <img
+                  src={template.picPdSignatureDataUrl}
+                  alt="PIC of Professional Development signature"
+                  className="max-h-8 sm:max-h-9 object-contain"
+                />
+              )}
+            </div>
             {template.picPdName.trim() && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full"
@@ -356,14 +368,19 @@ function RecognitionCertificateCanvas({
             </div>
           </div>
 
-          <div className="flex flex-col items-center">
-            {template.principalSignatureDataUrl && (
-              <img
-                src={template.principalSignatureDataUrl}
-                alt="Principal signature"
-                className="h-8 object-contain mb-1"
-              />
-            )}
+          <div className="flex flex-col items-center justify-end">
+            <div className="text-[9px] sm:text-[10px] text-slate-700 mb-0.5 whitespace-nowrap">
+              Jakarta, {formattedIssueDate}
+            </div>
+            <div className="h-9 sm:h-10 flex items-end justify-center w-full mb-0.5">
+              {template.principalSignatureDataUrl && (
+                <img
+                  src={template.principalSignatureDataUrl}
+                  alt="Principal signature"
+                  className="max-h-8 sm:max-h-9 object-contain"
+                />
+              )}
+            </div>
             {template.principalName.trim() && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full"
@@ -377,13 +394,6 @@ function RecognitionCertificateCanvas({
             </div>
           </div>
         </div>
-
-        {template.showCertificateId && (
-          <div className="font-mono-tabular text-[9px] text-slate-500">
-            Certificate ID: {certificateNumber} · Issued: {issueDate} · Event:{' '}
-            {eventTitle}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2991,7 +3001,7 @@ export default function AdminRecognitionModule({
                         }))
                       }
                     />
-                    <span>Show Topic / Theme</span>
+                    <span>Show Topic</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5">
                     <input
@@ -3004,7 +3014,7 @@ export default function AdminRecognitionModule({
                         }))
                       }
                     />
-                    <span>Show Certificate ID</span>
+                    <span>Show Certificate No. &amp; Issued Date</span>
                   </label>
                 </div>
               </div>
@@ -3710,10 +3720,8 @@ export default function AdminRecognitionModule({
                 selectedEvent?.category ||
                 'Instructional Excellence'
               }
-              themeText={selectedEvent?.theme?.trim() || ''}
               certificateNumber="PRZ-2026-SAMPLE"
               issueDate={formatLocalDateYmd(new Date())}
-              eventTitle={selectedEvent?.title || 'Workshop Session'}
             />
           </section>
         </div>
@@ -3852,10 +3860,8 @@ export default function AdminRecognitionModule({
                     recipientDepartment={previewCert.participantDepartment}
                     wordingText={resolvedWording}
                     topicText={resolvedEventTopic}
-                    themeText={resolvedEventTheme}
                     certificateNumber={previewCert.certificateNumber}
                     issueDate={previewCert.issueDate}
-                    eventTitle={resolvedEventTitle}
                   />
                 );
               })()}

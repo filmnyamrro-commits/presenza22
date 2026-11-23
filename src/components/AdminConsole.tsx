@@ -2581,11 +2581,11 @@ export default function AdminConsole({
       </div>
 
       {/* Two-Column Workspace: Event & QR Management + Real-Time Arrival Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
         {/* Left 7 Columns: Ongoing Event & Ended Event Selector */}
         <section className="lg:col-span-7 bg-white/88 backdrop-blur-xs border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-1.5">
+          <div className="px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="space-y-1 min-w-0">
               <div
                 role="tablist"
                 aria-label="Event status categories"
@@ -2596,7 +2596,7 @@ export default function AdminConsole({
                   role="tab"
                   aria-selected={eventListTab === 'ongoing'}
                   onClick={() => setEventListTab('ongoing')}
-                  className={`min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-2 whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 py-1 rounded-lg text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                     eventListTab === 'ongoing'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -2618,7 +2618,7 @@ export default function AdminConsole({
                   role="tab"
                   aria-selected={eventListTab === 'ended'}
                   onClick={() => setEventListTab('ended')}
-                  className={`min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-2 whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 py-1 rounded-lg text-xs sm:text-sm font-bold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                     eventListTab === 'ended'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -2636,14 +2636,14 @@ export default function AdminConsole({
                   </span>
                 </button>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 leading-snug">
                 Choose Ongoing Event or Ended Event, then click an event to open its QR codes and Check-In &amp; Feedback status.
               </p>
             </div>
             <button
               type="button"
               onClick={openCreateModal}
-              className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-center"
+              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-center"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Event</span>
@@ -2796,151 +2796,148 @@ export default function AdminConsole({
                       }
                     }}
                     aria-label={`Open ${ev.title} to view Check-In and Feedback status`}
-                    className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 transition-colors cursor-pointer"
+                    className="px-4 py-3 flex items-start gap-3 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-start gap-3.5 min-w-0">
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <EventQrThumbnail
-                          eventId={ev.id}
-                          eventTitle={ev.title}
-                          publicAppUrl={branding?.publicAppUrl}
-                          onClick={handleOpenClickedEvent}
-                        />
-                      </div>
-
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                            {ev.title}
-                          </h3>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                          <span>{ev.category}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {ev.venue}
-                          </span>
-                          <span aria-hidden="true">·</span>
-                          <span className="font-mono-tabular">{ev.eventDate}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="font-mono-tabular">
-                            {ev.startTime} (Cutoff {ev.lateCutoffTime})
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
-                          <span className="font-mono-tabular font-semibold text-slate-700">
-                            {count}{' '}
-                            {count === 1
-                              ? 'participant checked in'
-                              : 'participants checked in'}
-                          </span>
-                          <span className="text-slate-300" aria-hidden="true">
-                            ·
-                          </span>
-                          <span
-                            className={`font-semibold ${
-                              isCheckInOpen ? 'text-emerald-700' : 'text-rose-700'
-                            }`}
-                          >
-                            {isCheckInOpen ? 'Check-In Open / Active' : 'Check-In Ended'}
-                          </span>
-                          <span className="text-slate-300" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className={`font-semibold ${feedbackStatusTone}`}>
-                            {feedbackStatusLabel}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
                     <div
-                      className="flex flex-wrap items-center gap-1.5 shrink-0"
+                      className="shrink-0 pt-0.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
+                      <EventQrThumbnail
+                        eventId={ev.id}
+                        eventTitle={ev.title}
+                        publicAppUrl={branding?.publicAppUrl}
                         onClick={handleOpenClickedEvent}
-                        className="min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-sm font-bold text-slate-900 leading-snug break-words">
+                          {ev.title}
+                        </h3>
+                        <span className="font-mono-tabular text-xs font-semibold text-slate-700 shrink-0 whitespace-nowrap pt-0.5">
+                          {count} checked in
+                        </span>
+                      </div>
+
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-500 leading-snug">
+                        <span>{ev.category}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span>{ev.venue}</span>
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono-tabular">{ev.eventDate}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono-tabular">
+                          {ev.startTime} (Cutoff {ev.lateCutoffTime})
+                        </span>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug">
+                        <span
+                          className={`font-semibold ${
+                            isCheckInOpen ? 'text-emerald-700' : 'text-rose-700'
+                          }`}
+                        >
+                          {isCheckInOpen ? 'Check-In Open / Active' : 'Check-In Ended'}
+                        </span>
+                        <span className="text-slate-300" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className={`font-semibold ${feedbackStatusTone}`}>
+                          {feedbackStatusLabel}
+                        </span>
+                      </div>
+
+                      <div
+                        className="mt-2 flex flex-wrap items-center gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <QrCode className="w-3.5 h-3.5" />
-                        <span>Open Event</span>
-                      </button>
-                      {isCheckInOpen && (
                         <button
                           type="button"
-                          disabled={togglingFeedbackEventId === ev.id}
-                          onClick={() =>
-                            void handleToggleEventFeedbackActive(ev)
-                          }
-                          className={`min-h-[38px] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap disabled:opacity-60 ${
-                            isFeedbackPaused
-                              ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
-                              : 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900'
-                          }`}
-                          title={
-                            isFeedbackPaused
-                              ? 'Activate Feedback & Evaluation for participants'
-                              : 'Pause / Deactivate Feedback & Evaluation for participants'
-                          }
+                          onClick={handleOpenClickedEvent}
+                          className="min-h-[32px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                         >
-                          {togglingFeedbackEventId === ev.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : isFeedbackPaused ? (
-                            <PlayCircle className="w-3.5 h-3.5" />
-                          ) : (
-                            <PauseCircle className="w-3.5 h-3.5" />
-                          )}
-                          <span>
-                            {isFeedbackPaused
-                              ? 'Activate Feedback'
-                              : 'Pause Feedback'}
-                          </span>
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>Open Event</span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomizeFeedbackTargetEventId(ev.id);
-                          setCustomizeFeedbackNonce((n) => n + 1);
-                          setCurrentSection('feedback');
-                        }}
-                        className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap"
-                        title="Edit Feedback questions, statements, and schedule live"
-                      >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        <span>Edit Feedback</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleToggleEventStatus(ev)}
-                        className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold transition-colors whitespace-nowrap"
-                      >
-                        {isCheckInOpen ? 'End Event' : 'Reopen'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(ev)}
-                        className="min-h-[38px] min-w-[38px] px-2 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors inline-flex items-center justify-center"
-                        aria-label={`Edit ${ev.title}`}
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setConfirmDelete({
-                            type: 'event',
-                            id: ev.id,
-                            label: ev.title,
-                          })
-                        }
-                        className="min-h-[38px] min-w-[38px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 text-rose-700 transition-colors inline-flex items-center justify-center"
-                        aria-label={`Delete ${ev.title}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        {isCheckInOpen && (
+                          <button
+                            type="button"
+                            disabled={togglingFeedbackEventId === ev.id}
+                            onClick={() =>
+                              void handleToggleEventFeedbackActive(ev)
+                            }
+                            className={`min-h-[32px] px-2.5 py-1 rounded-lg border text-[11px] sm:text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap disabled:opacity-60 ${
+                              isFeedbackPaused
+                                ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                                : 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900'
+                            }`}
+                            title={
+                              isFeedbackPaused
+                                ? 'Activate Feedback & Evaluation for participants'
+                                : 'Pause / Deactivate Feedback & Evaluation for participants'
+                            }
+                          >
+                            {togglingFeedbackEventId === ev.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : isFeedbackPaused ? (
+                              <PlayCircle className="w-3.5 h-3.5" />
+                            ) : (
+                              <PauseCircle className="w-3.5 h-3.5" />
+                            )}
+                            <span>
+                              {isFeedbackPaused
+                                ? 'Activate Feedback'
+                                : 'Pause Feedback'}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomizeFeedbackTargetEventId(ev.id);
+                            setCustomizeFeedbackNonce((n) => n + 1);
+                            setCurrentSection('feedback');
+                          }}
+                          className="min-h-[32px] px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-[11px] sm:text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap"
+                          title="Edit Feedback questions, statements, and schedule live"
+                        >
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          <span>Edit Feedback</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleEventStatus(ev)}
+                          className="min-h-[32px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap"
+                        >
+                          {isCheckInOpen ? 'End Event' : 'Reopen'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(ev)}
+                          className="min-h-[32px] min-w-[32px] px-1.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors inline-flex items-center justify-center"
+                          aria-label={`Edit ${ev.title}`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setConfirmDelete({
+                              type: 'event',
+                              id: ev.id,
+                              label: ev.title,
+                            })
+                          }
+                          className="min-h-[32px] min-w-[32px] px-1.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 text-rose-700 transition-colors inline-flex items-center justify-center"
+                          aria-label={`Delete ${ev.title}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2981,7 +2978,7 @@ export default function AdminConsole({
 
           <div className="relative z-10">
             <div
-              className={`px-5 py-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 ${
+              className={`px-4 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 ${
                 dashboardBgUrl ? 'bg-white/80 backdrop-blur-[2px]' : ''
               }`}
             >
@@ -3152,7 +3149,7 @@ export default function AdminConsole({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18 }}
-                        className={`px-5 py-3.5 flex items-center justify-between gap-3 ${
+                        className={`px-4 py-2.5 flex items-center justify-between gap-2.5 ${
                           isRecent
                             ? 'bg-blue-50/75'
                             : dashboardBgUrl
@@ -3224,9 +3221,9 @@ export default function AdminConsole({
 
       {/* Live Attendance Roster Table */}
       <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="px-4 py-3 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">
               Live Attendance Log
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -3456,18 +3453,18 @@ export default function AdminConsole({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
-                  <th className="py-3 px-4">#</th>
-                  <th className="py-3 px-4">Photo</th>
-                  <th className="py-3 px-4">Participant</th>
-                  <th className="py-3 px-4">Class / Department</th>
-                  <th className="py-3 px-4">Event</th>
-                  <th className="py-3 px-4">Date & Time</th>
-                  <th className="py-3 px-4">Server Timestamp</th>
-                  <th className="py-3 px-4">Status &amp; Excuse</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">Photo</th>
+                  <th className="py-2.5 px-3">Participant</th>
+                  <th className="py-2.5 px-3">Class / Department</th>
+                  <th className="py-2.5 px-3">Event</th>
+                  <th className="py-2.5 px-3">Date & Time</th>
+                  <th className="py-2.5 px-3">Server Timestamp</th>
+                  <th className="py-2.5 px-3">Status &amp; Excuse</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
+              <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
                 {filteredAttendances.map((rec, index) => {
                   const serverDate = rec.serverTimestamp?.toDate
                     ? rec.serverTimestamp.toDate()
@@ -3477,14 +3474,14 @@ export default function AdminConsole({
                       key={rec.id}
                       className="hover:bg-slate-50/70 transition-colors"
                     >
-                      <td className="py-2.5 px-4 font-mono-tabular text-xs font-semibold text-slate-500">
+                      <td className="py-2 px-3 font-mono-tabular text-xs font-semibold text-slate-500">
                         {index + 1}
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-2 px-3">
                         <button
                           type="button"
                           onClick={() => setLightboxRecord(rec)}
-                          className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 hover:ring-2 hover:ring-blue-600 transition-all block"
+                          className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 hover:ring-2 hover:ring-blue-600 transition-all block"
                           aria-label={`View photo of ${rec.fullName}`}
                         >
                           <img
@@ -3494,7 +3491,7 @@ export default function AdminConsole({
                           />
                         </button>
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-2 px-3">
                         <div className="font-semibold text-slate-900">
                           {rec.fullName}
                         </div>
@@ -3504,17 +3501,17 @@ export default function AdminConsole({
                           </div>
                         )}
                       </td>
-                      <td className="py-2.5 px-4 text-slate-700">
+                      <td className="py-2 px-3 text-slate-700">
                         {rec.classDepartment}
                       </td>
-                      <td className="py-2.5 px-4 text-slate-700 max-w-[200px] truncate">
+                      <td className="py-2 px-3 text-slate-700 max-w-[200px] truncate">
                         {rec.eventName}
                       </td>
-                      <td className="py-2.5 px-4 font-mono-tabular text-xs text-slate-700 whitespace-nowrap">
+                      <td className="py-2 px-3 font-mono-tabular text-xs text-slate-700 whitespace-nowrap">
                         <div>{rec.attendanceDate}</div>
                         <div className="text-slate-500">{rec.checkInTime}</div>
                       </td>
-                      <td className="py-2.5 px-4 font-mono-tabular text-xs text-slate-600 whitespace-nowrap">
+                      <td className="py-2 px-3 font-mono-tabular text-xs text-slate-600 whitespace-nowrap">
                         {serverDate
                           ? serverDate.toLocaleTimeString('en-US', {
                               hour: '2-digit',
@@ -3523,7 +3520,7 @@ export default function AdminConsole({
                             })
                           : 'Syncing...'}
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-2 px-3">
                         <button
                           type="button"
                           onClick={() => void handleToggleAttendanceStatus(rec)}
@@ -3547,7 +3544,7 @@ export default function AdminConsole({
                           </div>
                         )}
                       </td>
-                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                      <td className="py-2 px-3 text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() =>
@@ -3557,7 +3554,7 @@ export default function AdminConsole({
                               label: `${rec.fullName} (${rec.eventName})`,
                             })
                           }
-                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                          className="min-h-[34px] min-w-[34px] inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition-colors"
                           aria-label={`Delete attendance record for ${rec.fullName}`}
                         >
                           <Trash2 className="w-4 h-4" />

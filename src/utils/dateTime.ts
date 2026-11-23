@@ -80,3 +80,25 @@ export function generateSafeId(prefix: string): string {
       : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   return `${prefix}_${randomPart}`.slice(0, 120);
 }
+
+export function formatCertificateIssueDate(ymdOrIso?: string): string {
+  const trimmed = (ymdOrIso || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split('-').map(Number);
+    const localDate = new Date(y, (m || 1) - 1, d || 1);
+    if (!Number.isNaN(localDate.getTime())) {
+      return localDate.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+  }
+  const parsed = trimmed ? new Date(trimmed) : new Date();
+  const safeDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  return safeDate.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
