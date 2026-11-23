@@ -65,12 +65,14 @@ import {
   googleProvider,
   handleFirestoreError,
   normalizeAdminEmail,
+  reportFirestoreError,
 } from '../firebase';
 import {
   type AttendanceRecord,
   type AttendanceStatus,
   type AuthorizedAdminRecord,
   type CertificateSettings,
+  type DiagnosticErrorDetails,
   type EventCategory,
   type EventRecord,
   type FeedbackConfig,
@@ -133,6 +135,7 @@ import AdminFeedbackModule from './AdminFeedbackModule';
 import AdminRecognitionModule from './AdminRecognitionModule';
 import AdminVoiceSettingsModule from './AdminVoiceSettingsModule';
 import CertificateCustomizerModal from './CertificateCustomizerModal';
+import DiagnosticErrorPanel from './DiagnosticErrorPanel';
 import EventQrThumbnail from './EventQrThumbnail';
 import LiveAnimatedDashboard from './LiveAnimatedDashboard';
 import QrPosterModal from './QrPosterModal';
@@ -315,6 +318,9 @@ export default function AdminConsole({
   >('12h');
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventFormError, setEventFormError] = useState<string | null>(null);
+  const [eventFormDiagnostic, setEventFormDiagnostic] =
+    useState<DiagnosticErrorDetails | null>(null);
+  const [quickCreateError, setQuickCreateError] = useState<string | null>(null);
 
   // Module 1 (Feedback & Evaluation) & Module 2 (Certificates & Recognition) State
   const [feedbackConfigsById, setFeedbackConfigsById] = useState<
@@ -1273,6 +1279,7 @@ export default function AdminConsole({
     setEvFeedbackCloseTime(formatTime24h(twoHoursLater));
     setEvFeedbackClosedMessage('');
     setEventFormError(null);
+    setEventFormDiagnostic(null);
     setShowEventModal(true);
   };
 
@@ -1311,11 +1318,58 @@ export default function AdminConsole({
     setEvFeedbackCloseTime(closeParts.time || '17:00');
     setEvFeedbackClosedMessage(existingCfg.scheduleClosedMessage || '');
     setEventFormError(null);
+    setEventFormDiagnostic(null);
     setShowEventModal(true);
+  };
+
+  const describeEventWriteFailure = (
+    error: unknown,
+    operationType: OperationType,
+    path: string,
+    component: string
+  ): { message: string; diagnostic: DiagnosticErrorDetails } => {
+    const info = reportFirestoreError(error, operationType, path);
+    const code = info.code || '';
+    let message =
+      'Failed to save session. Please verify all fields and try again.';
+
+    if (code.includes('permission-denied')) {
+      message =
+        'Permission denied by Firestore security rules. Please ensure Firestore rules are deployed for this project and that your signed-in Google account is authorized as an administrator.';
+    } else if (code.includes('unauthenticated')) {
+      message =
+        'Your administrator sign-in session has expired. Please sign out, sign back in with Google, and try again.';
+    } else if (
+      code.includes('resource-exhausted') ||
+      info.error.toLowerCase().includes('quota')
+    ) {
+      message =
+        'Firestore daily usage quota exceeded for this database. Writes are temporarily blocked until the quota resets or the plan is upgraded.';
+    } else if (code.includes('unavailable') || code.includes('network')) {
+      message =
+        'Unable to reach Firestore due to a network issue. Check your internet connection and try again.';
+    } else if (info.error) {
+      message = `Failed to save session (${code || 'firestore-error'}): ${info.error}`;
+    }
+
+    return {
+      message,
+      diagnostic: {
+        title: 'Session Save Failed',
+        message: info.error,
+        failingUrl:
+          typeof window !== 'undefined' ? window.location.href : '',
+        firebaseCode: code || undefined,
+        firebaseMessage: info.error,
+        consoleError: `Firestore ${operationType.toUpperCase()} ${path}: ${info.error}`,
+        component,
+      },
+    };
   };
 
   const handleQuickCreateStarter = async () => {
     if (!user) return;
+    setQuickCreateError(null);
     setSavingEvent(true);
     const now = new Date();
     const cutoff = new Date(now.getTime() + 20 * 60 * 1000);
@@ -1323,25 +1377,34 @@ export default function AdminConsole({
     const startTime = formatTime24h(now);
     const lateCutoffTime = formatTime24h(cutoff);
     const eventId = generateSafeId('evt');
-    const cutoffTs = Timestamp.fromDate(
-      buildCutoffDate(eventDate, lateCutoffTime)
-    );
-
-    const payload = {
-      title: 'Teacher Professional Development Workshop',
-      category: 'Professional Development' as EventCategory,
-      description:
-        'Collaborative curriculum planning and instructional review session.',
-      venue: 'Main Conference Hall',
-      eventDate,
-      startTime,
-      lateCutoffTime,
-      cutoffTimestamp: cutoffTs,
-      status: 'active' as const,
-      createdByUid: user.uid,
-    };
 
     try {
+      const cutoffTs = Timestamp.fromDate(
+        buildCutoffDate(eventDate, lateCutoffTime)
+      );
+
+      const payload = {
+        title: 'Teacher Professional Development Workshop',
+        category: 'Professional Development' as EventCategory,
+        description:
+          'Collaborative curriculum planning and instructional review session.',
+        venue: 'Main Conference Hall',
+        eventDate,
+        startTime,
+        lateCutoffTime,
+        cutoffTimestamp: cutoffTs,
+        departmentLabel: 'Class / Department',
+        consentText:
+          'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.',
+        facilitators: '',
+        principalName: '',
+        theme: '',
+        topic: '',
+        requireParticipantLogin: false,
+        status: 'active' as const,
+        createdByUid: user.uid,
+      };
+
       await setDoc(doc(db, 'events', eventId), {
         ...payload,
         createdAt: serverTimestamp(),
@@ -1356,7 +1419,13 @@ export default function AdminConsole({
         updatedAt: Timestamp.now(),
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `events/${eventId}`);
+      const failure = describeEventWriteFailure(
+        error,
+        OperationType.CREATE,
+        `events/${eventId}`,
+        'AdminConsole.handleQuickCreateStarter'
+      );
+      setQuickCreateError(failure.message);
     } finally {
       setSavingEvent(false);
     }
@@ -1366,11 +1435,15 @@ export default function AdminConsole({
     e.preventDefault();
     if (!user) return;
     setEventFormError(null);
+    setEventFormDiagnostic(null);
 
     const title = evTitle.trim();
     const category = evCategory.trim();
     const venue = evVenue.trim();
     const description = evDescription.trim();
+    const cleanDate = evDate.trim();
+    const cleanStartTime = evStartTime.trim();
+    const cleanCutoffTime = evCutoffTime.trim();
 
     if (title.length < 2) {
       setEventFormError('Please enter a session title (at least 2 characters).');
@@ -1382,6 +1455,24 @@ export default function AdminConsole({
     }
     if (venue.length < 1) {
       setEventFormError('Please enter a room or venue.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+      setEventFormError('Please select a valid event date (YYYY-MM-DD).');
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(cleanStartTime)) {
+      setEventFormError('Please select a valid start time.');
+      return;
+    }
+    if (!/^\d{2}:\d{2}$/.test(cleanCutoffTime)) {
+      setEventFormError('Please select a valid late cutoff time.');
+      return;
+    }
+
+    const cutoffDateObj = buildCutoffDate(cleanDate, cleanCutoffTime);
+    if (Number.isNaN(cutoffDateObj.getTime())) {
+      setEventFormError('The selected date or late cutoff time is invalid.');
       return;
     }
 
@@ -1422,8 +1513,6 @@ export default function AdminConsole({
     }
 
     setSavingEvent(true);
-    const cutoffTs = Timestamp.fromDate(buildCutoffDate(evDate, evCutoffTime));
-
     const deptLabel = (evDepartmentLabel.trim() || 'Class / Department').slice(0, 80);
     const consentStatement = (
       evConsentText.trim() ||
@@ -1435,15 +1524,18 @@ export default function AdminConsole({
     const topic = evTopic.trim().slice(0, 200);
 
     try {
+      const cutoffTs = Timestamp.fromDate(cutoffDateObj);
+      let savedEventRecord: EventRecord;
+
       if (editingEvent) {
-        await updateDoc(doc(db, 'events', editingEvent.id), {
+        const updatePayload = {
           title: title.slice(0, 140),
           category: category.slice(0, 80),
           description: description.slice(0, 500),
           venue: venue.slice(0, 120),
-          eventDate: evDate,
-          startTime: evStartTime,
-          lateCutoffTime: evCutoffTime,
+          eventDate: cleanDate,
+          startTime: cleanStartTime,
+          lateCutoffTime: cleanCutoffTime,
           cutoffTimestamp: cutoffTs,
           departmentLabel: deptLabel,
           departmentPresets: editingEvent.departmentPresets || '',
@@ -1454,29 +1546,27 @@ export default function AdminConsole({
           topic,
           requireParticipantLogin: false,
           updatedAt: serverTimestamp(),
-        });
+        };
 
-        const baseFeedbackCfg = mergeFeedbackConfig(
-          feedbackConfigsById.get(editingEvent.id) ??
-            feedbackConfigsById.get('default') ??
-            null,
-          editingEvent.id
-        );
-        const feedbackPayload = buildFeedbackConfigWritePayload(
-          {
-            ...baseFeedbackCfg,
-            eventId: editingEvent.id,
-            feedbackActive: evFeedbackActive,
-            scheduleEnabled: evFeedbackScheduleEnabled,
-            openAtIso: evFeedbackScheduleEnabled ? fbOpenIso : '',
-            closeAtIso: evFeedbackScheduleEnabled ? fbCloseIso : '',
-            scheduleClosedMessage: evFeedbackClosedMessage.trim().slice(0, 300),
-          },
-          user.uid,
-          (ms) => Timestamp.fromMillis(ms),
-          serverTimestamp()
-        );
-        await setDoc(doc(db, 'feedbackConfigs', editingEvent.id), feedbackPayload);
+        try {
+          await updateDoc(doc(db, 'events', editingEvent.id), updatePayload);
+        } catch (error) {
+          const failure = describeEventWriteFailure(
+            error,
+            OperationType.UPDATE,
+            `events/${editingEvent.id}`,
+            'AdminConsole.handleSaveEvent.updateEvent'
+          );
+          setEventFormError(failure.message);
+          setEventFormDiagnostic(failure.diagnostic);
+          return;
+        }
+
+        savedEventRecord = {
+          ...editingEvent,
+          ...updatePayload,
+          updatedAt: Timestamp.now(),
+        };
       } else {
         const eventId = generateSafeId('evt');
         const newPayload = {
@@ -1484,9 +1574,9 @@ export default function AdminConsole({
           category: category.slice(0, 80),
           description: description.slice(0, 500),
           venue: venue.slice(0, 120),
-          eventDate: evDate,
-          startTime: evStartTime,
-          lateCutoffTime: evCutoffTime,
+          eventDate: cleanDate,
+          startTime: cleanStartTime,
+          lateCutoffTime: cleanCutoffTime,
           cutoffTimestamp: cutoffTs,
           departmentLabel: deptLabel,
           consentText: consentStatement,
@@ -1498,51 +1588,101 @@ export default function AdminConsole({
           status: 'active' as const,
           createdByUid: user.uid,
         };
-        await setDoc(doc(db, 'events', eventId), {
-          ...newPayload,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
 
-        const baseFeedbackCfg = mergeFeedbackConfig(
-          feedbackConfigsById.get('default') ?? null,
-          eventId
-        );
-        const feedbackPayload = buildFeedbackConfigWritePayload(
-          {
-            ...baseFeedbackCfg,
-            eventId,
-            feedbackActive: evFeedbackActive,
-            scheduleEnabled: evFeedbackScheduleEnabled,
-            openAtIso: evFeedbackScheduleEnabled ? fbOpenIso : '',
-            closeAtIso: evFeedbackScheduleEnabled ? fbCloseIso : '',
-            scheduleClosedMessage: evFeedbackClosedMessage.trim().slice(0, 300),
-          },
-          user.uid,
-          (ms) => Timestamp.fromMillis(ms),
-          serverTimestamp()
-        );
-        await setDoc(doc(db, 'feedbackConfigs', eventId), feedbackPayload);
+        try {
+          await setDoc(doc(db, 'events', eventId), {
+            ...newPayload,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        } catch (error) {
+          const failure = describeEventWriteFailure(
+            error,
+            OperationType.CREATE,
+            `events/${eventId}`,
+            'AdminConsole.handleSaveEvent.createEvent'
+          );
+          setEventFormError(failure.message);
+          setEventFormDiagnostic(failure.diagnostic);
+          return;
+        }
 
-        setShowEventModal(false);
-        setEventListTab('ongoing');
-        setSelectedEventFilter(eventId);
-        setQrEvent({
+        savedEventRecord = {
           id: eventId,
           ...newPayload,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
-        });
+        };
+      }
+
+      // Secondary feedback configuration write for this session
+      const targetEventId = savedEventRecord.id;
+      const baseFeedbackCfg = mergeFeedbackConfig(
+        feedbackConfigsById.get(targetEventId) ??
+          feedbackConfigsById.get('default') ??
+          null,
+        targetEventId
+      );
+      const feedbackPayload = buildFeedbackConfigWritePayload(
+        {
+          ...baseFeedbackCfg,
+          eventId: targetEventId,
+          feedbackActive: evFeedbackActive,
+          scheduleEnabled: evFeedbackScheduleEnabled,
+          openAtIso: evFeedbackScheduleEnabled ? fbOpenIso : '',
+          closeAtIso: evFeedbackScheduleEnabled ? fbCloseIso : '',
+          scheduleClosedMessage: evFeedbackClosedMessage.trim().slice(0, 300),
+        },
+        user.uid,
+        (ms) => Timestamp.fromMillis(ms),
+        serverTimestamp()
+      );
+
+      const hasCustomFeedbackSettings =
+        !evFeedbackActive ||
+        evFeedbackScheduleEnabled ||
+        evFeedbackClosedMessage.trim().length > 0;
+
+      try {
+        await setDoc(doc(db, 'feedbackConfigs', targetEventId), feedbackPayload);
+      } catch (fbError) {
+        const failure = describeEventWriteFailure(
+          fbError,
+          OperationType.WRITE,
+          `feedbackConfigs/${targetEventId}`,
+          'AdminConsole.handleSaveEvent.writeFeedbackConfig'
+        );
+
+        // If creating with default active feedback and no custom schedule, do not block opening the session
+        if (!editingEvent && !hasCustomFeedbackSettings) {
+          setShowEventModal(false);
+          setEventListTab('ongoing');
+          setSelectedEventFilter(targetEventId);
+          setQrEvent(savedEventRecord);
+          return;
+        }
+
+        if (!editingEvent) {
+          // Switch to edit mode so a retry updates this already-created event instead of duplicating it
+          setEditingEvent(savedEventRecord);
+          setEventListTab('ongoing');
+          setSelectedEventFilter(targetEventId);
+        }
+        setEventFormError(
+          `Session "${savedEventRecord.title}" was saved, but its feedback settings could not be written. ${failure.message}`
+        );
+        setEventFormDiagnostic(failure.diagnostic);
         return;
       }
+
       setShowEventModal(false);
-    } catch (error) {
-      setEventFormError('Failed to save session. Please verify all fields.');
-      handleFirestoreError(
-        error,
-        editingEvent ? OperationType.UPDATE : OperationType.CREATE,
-        editingEvent ? `events/${editingEvent.id}` : 'events'
-      );
+      if (!editingEvent) {
+        setEventListTab('ongoing');
+        setSelectedEventFilter(targetEventId);
+        setQrEvent(savedEventRecord);
+      } else if (qrEvent?.id === targetEventId) {
+        setQrEvent(savedEventRecord);
+      }
     } finally {
       setSavingEvent(false);
     }
@@ -2541,11 +2681,17 @@ export default function AdminConsole({
                   type="button"
                   onClick={handleQuickCreateStarter}
                   disabled={savingEvent}
-                  className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition-colors"
+                  className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition-colors inline-flex items-center gap-2 disabled:opacity-60"
                 >
-                  Quick-Open Today&apos;s PD Workshop
+                  {savingEvent && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>Quick-Open Today&apos;s PD Workshop</span>
                 </button>
               </div>
+              {quickCreateError && (
+                <p className="max-w-md mx-auto text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                  {quickCreateError}
+                </p>
+              )}
             </div>
           ) : displayedEvents.length === 0 ? (
             <div className="p-8 text-center space-y-3">
@@ -4236,9 +4382,14 @@ export default function AdminConsole({
               </div>
 
               {eventFormError && (
-                <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                  {eventFormError}
-                </p>
+                <div className="space-y-1.5" role="alert">
+                  <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                    {eventFormError}
+                  </p>
+                  {eventFormDiagnostic && (
+                    <DiagnosticErrorPanel diagnostic={eventFormDiagnostic} />
+                  )}
+                </div>
               )}
 
               <div className="pt-2 flex items-center justify-end gap-2.5">
