@@ -65,6 +65,7 @@ import {
   buildParticipationCertificateNumber,
   DEFAULT_PARTICIPATION_TEMPLATE,
   evaluateFeedbackSchedule,
+  formatEventLocation,
   formatScheduleCountdown,
   formatScheduleDateTime,
   mergeFeedbackConfig,
@@ -335,7 +336,7 @@ export default function ParticipantFeedback({
             kind: 'ended',
             eventTitle: cleanTitle,
             eventDate: data.eventDate,
-            venue: data.venue,
+            venue: formatEventLocation(data.venue, data.city) || data.venue,
           });
           setEventError(`The event "${cleanTitle}" has ended.`);
           setResolvingRequestedEvent(false);
@@ -703,13 +704,17 @@ export default function ParticipantFeedback({
       eventId: selectedEvent.id,
       eventTitle: selectedEvent.title,
       eventDate: eventDateVal,
-      eventVenue: (selectedEvent.venue || '').slice(0, 120),
+      eventVenue: formatEventLocation(
+        selectedEvent.venue,
+        selectedEvent.city
+      ).slice(0, 120),
       facilitatorName: (
-        selectedEvent.facilitators?.trim() || 'Session Facilitator'
+        selectedEvent.picName?.trim() ||
+        selectedEvent.facilitators?.trim() ||
+        'Session Facilitator'
       ).slice(0, 200),
       sessionTopic: (
         selectedEvent.topic?.trim() ||
-        selectedEvent.theme?.trim() ||
         selectedEvent.category ||
         ''
       ).slice(0, 200),
@@ -822,10 +827,16 @@ export default function ParticipantFeedback({
             eventTitle: selectedEvent.title,
             eventDate:
               selectedEvent.eventDate || formatLocalDateYmd(new Date()),
-            eventVenue: selectedEvent.venue || '',
+            eventVenue: formatEventLocation(
+              selectedEvent.venue,
+              selectedEvent.city
+            ),
             eventTopic:
               selectedEvent.topic?.trim() || selectedEvent.category || '',
-            facilitators: selectedEvent.facilitators?.trim() || '',
+            facilitators:
+              selectedEvent.picName?.trim() ||
+              selectedEvent.facilitators?.trim() ||
+              '',
             organizerName: branding?.organizationName?.trim() || 'PRESENZA',
             participantName: certParticipantName,
             participantDepartment:
@@ -838,6 +849,22 @@ export default function ParticipantFeedback({
               checkInHint?.attendanceDate ||
               selectedEvent.eventDate ||
               formatLocalDateYmd(new Date()),
+            cityName:
+              selectedEvent.city?.trim() ||
+              participationTemplate.cityName ||
+              'Jakarta',
+            picPdTitle:
+              selectedEvent.picTitle?.trim() ||
+              participationTemplate.picPdTitle ||
+              '',
+            picPdName:
+              selectedEvent.picName?.trim() ||
+              participationTemplate.picPdName ||
+              '',
+            principalName:
+              selectedEvent.principalName?.trim() ||
+              participationTemplate.principalName ||
+              '',
           }
         : null;
 
@@ -993,6 +1020,10 @@ export default function ParticipantFeedback({
                   facilitators={autoCert.facilitators}
                   certificateNumber={autoCert.certificateNumber}
                   issueDate={autoCert.issueDate}
+                  cityName={autoCert.cityName}
+                  overridePicPdName={autoCert.picPdName}
+                  overridePicPdTitle={autoCert.picPdTitle}
+                  overridePrincipalName={autoCert.principalName}
                 />
               </div>
               <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
@@ -1236,24 +1267,26 @@ export default function ParticipantFeedback({
                   <span>Location</span>
                 </dt>
                 <dd className="font-semibold text-slate-900 text-right">
-                  {selectedEvent.venue}
+                  {formatEventLocation(selectedEvent.venue, selectedEvent.city)}
                 </dd>
               </div>
               <div className="py-2.5 flex items-start justify-between gap-3">
                 <dt className="text-slate-500 inline-flex items-center gap-1.5 shrink-0">
                   <Users className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Facilitator</span>
+                  <span>
+                    {selectedEvent.picTitle?.trim() || 'PIC / Facilitator'}
+                  </span>
                 </dt>
                 <dd className="font-semibold text-slate-900 text-right">
-                  {selectedEvent.facilitators?.trim() || 'Session Facilitator'}
+                  {selectedEvent.picName?.trim() ||
+                    selectedEvent.facilitators?.trim() ||
+                    'Session Facilitator'}
                 </dd>
               </div>
               <div className="py-2.5 flex items-start justify-between gap-3">
                 <dt className="text-slate-500 shrink-0">Session / Topic</dt>
                 <dd className="font-semibold text-slate-900 text-right">
-                  {selectedEvent.topic?.trim() ||
-                    selectedEvent.theme?.trim() ||
-                    selectedEvent.category}
+                  {selectedEvent.topic?.trim() || selectedEvent.category}
                 </dd>
               </div>
             </dl>

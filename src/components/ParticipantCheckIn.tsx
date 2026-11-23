@@ -55,6 +55,7 @@ import {
 import {
   buildParticipationCertificateNumber,
   DEFAULT_PARTICIPATION_TEMPLATE,
+  formatEventLocation,
   mergeParticipationTemplate,
 } from '../utils/feedbackAndRecognitionDefaults';
 import { captureVideoFrame, compressImageFile } from '../utils/imageCompress';
@@ -467,7 +468,7 @@ export default function ParticipantCheckIn({
             kind: 'ended',
             eventTitle: cleanTitle,
             eventDate: data.eventDate,
-            venue: data.venue,
+            venue: formatEventLocation(data.venue, data.city) || data.venue,
           });
           setEventError(`The event "${cleanTitle}" has ended.`);
           setResolvingRequestedEvent(false);
@@ -990,9 +991,10 @@ export default function ParticipantCheckIn({
       eventId: receipt.eventId,
       eventTitle: eventMeta?.title || receipt.eventName,
       eventDate: eventDateVal,
-      eventVenue: eventMeta?.venue || '',
+      eventVenue: formatEventLocation(eventMeta?.venue, eventMeta?.city),
       eventTopic: eventMeta?.topic?.trim() || eventMeta?.category || '',
-      facilitators: eventMeta?.facilitators?.trim() || '',
+      facilitators:
+        eventMeta?.picName?.trim() || eventMeta?.facilitators?.trim() || '',
       organizerName,
       participantName: receipt.fullName,
       participantDepartment: receipt.classDepartment,
@@ -1000,6 +1002,16 @@ export default function ParticipantCheckIn({
       checkInTime: receipt.checkInTime,
       attendanceStatus: receipt.status,
       issueDate: receipt.attendanceDate || eventDateVal,
+      cityName:
+        eventMeta?.city?.trim() || participationTemplate.cityName || 'Jakarta',
+      picPdTitle:
+        eventMeta?.picTitle?.trim() || participationTemplate.picPdTitle || '',
+      picPdName:
+        eventMeta?.picName?.trim() || participationTemplate.picPdName || '',
+      principalName:
+        eventMeta?.principalName?.trim() ||
+        participationTemplate.principalName ||
+        '',
     };
     const langLabel =
       participationTemplate.languageFormat === 'english'
@@ -1272,6 +1284,10 @@ export default function ParticipantCheckIn({
                   facilitators={autoCert.facilitators}
                   certificateNumber={autoCert.certificateNumber}
                   issueDate={autoCert.issueDate}
+                  cityName={autoCert.cityName}
+                  overridePicPdName={autoCert.picPdName}
+                  overridePicPdTitle={autoCert.picPdTitle}
+                  overridePrincipalName={autoCert.principalName}
                 />
               </div>
               <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
@@ -1484,7 +1500,7 @@ export default function ParticipantCheckIn({
                   <span aria-hidden="true">·</span>
                   <span className="inline-flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" />
-                    {selectedEvent.venue}
+                    {formatEventLocation(selectedEvent.venue, selectedEvent.city)}
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="font-mono-tabular">{selectedEvent.eventDate}</span>

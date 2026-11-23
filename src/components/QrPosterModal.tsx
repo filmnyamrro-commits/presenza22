@@ -42,6 +42,7 @@ import type {
 } from '../types';
 import {
   evaluateFeedbackSchedule,
+  formatEventLocation,
   formatScheduleDateTime,
   mergeFeedbackConfig,
 } from '../utils/feedbackAndRecognitionDefaults';
@@ -480,7 +481,7 @@ export default function QrPosterModal({
               <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                 <span>{event.category}</span>
                 <span aria-hidden="true">·</span>
-                <span>{event.venue}</span>
+                <span>{formatEventLocation(event.venue, event.city)}</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-mono-tabular">{event.eventDate}</span>
                 <span aria-hidden="true">·</span>

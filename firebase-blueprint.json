@@ -28,6 +28,11 @@
           "maxLength": 120,
           "description": "Room, hall, or online meeting location."
         },
+        "city": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "City where the event is held (printed above signature block and synced to certificates)."
+        },
         "eventDate": {
           "type": "string",
           "minLength": 10,
@@ -95,6 +100,16 @@
           "type": "string",
           "maxLength": 200,
           "description": "Facilitator name(s) printed on participant recognition certificates."
+        },
+        "picTitle": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "PIC of (Event) signatory role title synced to all certificate templates."
+        },
+        "picName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "PIC of (Event) signatory name synced to all certificate templates."
         },
         "principalName": {
           "type": "string",
@@ -412,6 +427,11 @@
           "maxLength": 120,
           "description": "Signatory role title (defaults to Principal)."
         },
+        "cityName": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "City printed above the Principal signature date line (defaults to Jakarta)."
+        },
         "bestTerm": {
           "type": "string",
           "enum": ["none", "term1", "term2", "term3", "term4"],
@@ -664,6 +684,7 @@
         "principalName": { "type": "string", "maxLength": 120 },
         "principalTitle": { "type": "string", "maxLength": 120 },
         "principalSignatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "cityName": { "type": "string", "maxLength": 80 },
         "showTopic": { "type": "boolean" },
         "showFacilitator": { "type": "boolean" },
         "showCertificateId": { "type": "boolean" },
@@ -814,6 +835,7 @@
         "picPdTitle": { "type": "string", "maxLength": 120 },
         "principalName": { "type": "string", "maxLength": 120 },
         "principalTitle": { "type": "string", "maxLength": 120 },
+        "cityName": { "type": "string", "maxLength": 80 },
         "issuedByUid": {
           "type": "string",
           "minLength": 1,

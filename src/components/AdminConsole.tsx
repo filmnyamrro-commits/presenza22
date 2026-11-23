@@ -110,6 +110,7 @@ import {
   DEFAULT_PARTICIPATION_TEMPLATE,
   DEFAULT_RECOGNITION_TEMPLATE,
   evaluateFeedbackSchedule,
+  formatEventLocation,
   formatScheduleDateTime,
   isoToLocalDateAndTime,
   localDateAndTimeToIso,
@@ -291,6 +292,7 @@ export default function AdminConsole({
   const [evTitle, setEvTitle] = useState('');
   const [evCategory, setEvCategory] = useState('');
   const [evVenue, setEvVenue] = useState('');
+  const [evCity, setEvCity] = useState('Jakarta');
   const [evDescription, setEvDescription] = useState('');
   const [evDate, setEvDate] = useState(() => formatLocalDateYmd(new Date()));
   const [evStartTime, setEvStartTime] = useState(() => formatTime24h(new Date()));
@@ -305,10 +307,13 @@ export default function AdminConsole({
   const [evConsentText, setEvConsentText] = useState(
     'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
   );
+  const [evPicTitle, setEvPicTitle] = useState('PIC of Professional Development');
+  const [evPicName, setEvPicName] = useState('');
   const [evFacilitators, setEvFacilitators] = useState('');
   const [evPrincipalName, setEvPrincipalName] = useState('');
-  const [evTheme, setEvTheme] = useState('');
   const [evTopic, setEvTopic] = useState('');
+  const [syncEventToCertTemplates, setSyncEventToCertTemplates] =
+    useState(true);
   const [timeFormatMode, setTimeFormatMode] = useState<'24h' | '12h'>('24h');
   const [evFeedbackActive, setEvFeedbackActive] = useState<boolean>(true);
   const [evFeedbackScheduleEnabled, setEvFeedbackScheduleEnabled] =
@@ -983,9 +988,10 @@ export default function AdminConsole({
       });
       setCertificateSettings(normalized);
 
-      // Keep recognition template signatories & Term 1–4 synchronized
+      // Keep recognition & participation templates synchronized
       const syncedTemplate = mergeRecognitionTemplate({
         ...recognitionTemplate,
+        cityName: normalized.cityName || 'Jakarta',
         bestTerm: normalized.bestTerm,
         termBestCategories: normalized.termBestCategories,
         picPdName: normalized.picPdName,
@@ -999,6 +1005,22 @@ export default function AdminConsole({
       await setDoc(doc(db, 'recognitionTemplates', 'default'), {
         ...syncedTemplate,
         signatureDataUrl: '',
+        updatedByUid: user.uid,
+        updatedAt: serverTimestamp(),
+      });
+
+      const syncedParticipation = mergeParticipationTemplate({
+        ...participationTemplate,
+        cityName: normalized.cityName || 'Jakarta',
+        picPdName: normalized.picPdName,
+        picPdTitle: normalized.picPdTitle,
+        picPdSignatureDataUrl: normalized.facilitatorSignatureDataUrl,
+        principalName: normalized.principalName,
+        principalTitle: normalized.principalTitle,
+        principalSignatureDataUrl: normalized.principalSignatureDataUrl,
+      });
+      await setDoc(doc(db, 'participationTemplates', 'default'), {
+        ...syncedParticipation,
         updatedByUid: user.uid,
         updatedAt: serverTimestamp(),
       });
@@ -1290,6 +1312,7 @@ export default function AdminConsole({
     setEvTitle('');
     setEvCategory('');
     setEvVenue('');
+    setEvCity(certificateSettings.cityName || 'Jakarta');
     setEvDescription('');
     setEvDate(defaultDate);
     setEvStartTime(defaultStart);
@@ -1299,10 +1322,14 @@ export default function AdminConsole({
     setEvConsentText(
       'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
     );
+    setEvPicTitle(
+      certificateSettings.picPdTitle || 'PIC of Professional Development'
+    );
+    setEvPicName(certificateSettings.picPdName || '');
     setEvFacilitators('');
-    setEvPrincipalName('');
-    setEvTheme('');
+    setEvPrincipalName(certificateSettings.principalName || '');
     setEvTopic('');
+    setSyncEventToCertTemplates(true);
     setEvFeedbackActive(true);
     setEvFeedbackScheduleEnabled(false);
     setEvFeedbackOpenDate(defaultDate);
@@ -1329,6 +1356,7 @@ export default function AdminConsole({
     setEvTitle(ev.title);
     setEvCategory(ev.category);
     setEvVenue(ev.venue);
+    setEvCity(ev.city?.trim() || certificateSettings.cityName || 'Jakarta');
     setEvDescription(ev.description);
     setEvDate(ev.eventDate);
     setEvStartTime(ev.startTime);
@@ -1341,10 +1369,23 @@ export default function AdminConsole({
       ev.consentText ||
         'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
     );
+    setEvPicTitle(
+      ev.picTitle?.trim() ||
+        certificateSettings.picPdTitle ||
+        'PIC of Professional Development'
+    );
+    setEvPicName(
+      ev.picName?.trim() ||
+        certificateSettings.picPdName ||
+        ev.facilitators ||
+        ''
+    );
     setEvFacilitators(ev.facilitators || '');
-    setEvPrincipalName(ev.principalName || '');
-    setEvTheme(ev.theme || '');
+    setEvPrincipalName(
+      ev.principalName?.trim() || certificateSettings.principalName || ''
+    );
     setEvTopic(ev.topic || '');
+    setSyncEventToCertTemplates(true);
     setEvFeedbackActive(existingCfg.feedbackActive !== false);
     setEvFeedbackScheduleEnabled(existingCfg.scheduleEnabled);
     setEvFeedbackOpenDate(openParts.date || ev.eventDate);
@@ -1424,6 +1465,7 @@ export default function AdminConsole({
         description:
           'Collaborative curriculum planning and instructional review session.',
         venue: 'Main Conference Hall',
+        city: 'Jakarta',
         eventDate,
         startTime,
         lateCutoffTime,
@@ -1432,8 +1474,11 @@ export default function AdminConsole({
         departmentPresets: '',
         consentText:
           'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.',
-        facilitators: '',
-        principalName: '',
+        picTitle:
+          certificateSettings.picPdTitle || 'PIC of Professional Development',
+        picName: certificateSettings.picPdName || '',
+        facilitators: certificateSettings.picPdName || '',
+        principalName: certificateSettings.principalName || '',
         theme: '',
         topic: '',
         requireParticipantLogin: false,
@@ -1476,6 +1521,7 @@ export default function AdminConsole({
     const title = evTitle.trim();
     const category = evCategory.trim();
     const venue = evVenue.trim();
+    const city = evCity.trim();
     const description = evDescription.trim();
     const cleanDate = evDate.trim();
     const cleanStartTime = evStartTime.trim();
@@ -1491,6 +1537,10 @@ export default function AdminConsole({
     }
     if (venue.length < 1) {
       setEventFormError('Please enter a room or venue.');
+      return;
+    }
+    if (city.length < 1) {
+      setEventFormError('Please enter the city where the event is held.');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
@@ -1557,9 +1607,13 @@ export default function AdminConsole({
       evConsentText.trim() ||
       'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
     ).slice(0, 400);
-    const facilitators = evFacilitators.trim().slice(0, 200);
+    const cleanCity = city.slice(0, 80);
+    const picTitle = (
+      evPicTitle.trim() || 'PIC of Professional Development'
+    ).slice(0, 120);
+    const picName = evPicName.trim().slice(0, 120);
+    const facilitators = (evFacilitators.trim() || picName).slice(0, 200);
     const principalName = evPrincipalName.trim().slice(0, 120);
-    const theme = evTheme.trim().slice(0, 120);
     const topic = evTopic.trim().slice(0, 200);
 
     try {
@@ -1572,6 +1626,7 @@ export default function AdminConsole({
           category: category.slice(0, 80),
           description: description.slice(0, 500),
           venue: venue.slice(0, 120),
+          city: cleanCity,
           eventDate: cleanDate,
           startTime: cleanStartTime,
           lateCutoffTime: cleanCutoffTime,
@@ -1579,9 +1634,11 @@ export default function AdminConsole({
           departmentLabel: deptLabel,
           departmentPresets: deptPresets,
           consentText: consentStatement,
+          picTitle,
+          picName,
           facilitators,
           principalName,
-          theme,
+          theme: '',
           topic,
           requireParticipantLogin: false,
           updatedAt: serverTimestamp(),
@@ -1613,6 +1670,7 @@ export default function AdminConsole({
           category: category.slice(0, 80),
           description: description.slice(0, 500),
           venue: venue.slice(0, 120),
+          city: cleanCity,
           eventDate: cleanDate,
           startTime: cleanStartTime,
           lateCutoffTime: cleanCutoffTime,
@@ -1620,9 +1678,11 @@ export default function AdminConsole({
           departmentLabel: deptLabel,
           departmentPresets: deptPresets,
           consentText: consentStatement,
+          picTitle,
+          picName,
           facilitators,
           principalName,
-          theme,
+          theme: '',
           topic,
           requireParticipantLogin: false,
           status: 'active' as const,
@@ -1653,6 +1713,56 @@ export default function AdminConsole({
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+      }
+
+      // Synchronize PIC of (Event), Principal & Event City across all 3 certificate templates
+      if (syncEventToCertTemplates) {
+        try {
+          const syncedBig5 = mergeCertificateSettings({
+            ...certificateSettings,
+            cityName: cleanCity,
+            picPdTitle: picTitle,
+            ...(picName ? { picPdName: picName } : {}),
+            ...(principalName ? { principalName } : {}),
+          });
+          const syncedRecognition = mergeRecognitionTemplate({
+            ...recognitionTemplate,
+            cityName: cleanCity,
+            picPdTitle: picTitle,
+            signatoryLabel: picTitle,
+            ...(picName ? { picPdName: picName } : {}),
+            ...(principalName ? { principalName } : {}),
+          });
+          const syncedParticipation = mergeParticipationTemplate({
+            ...participationTemplate,
+            cityName: cleanCity,
+            picPdTitle: picTitle,
+            ...(picName ? { picPdName: picName } : {}),
+            ...(principalName ? { principalName } : {}),
+          });
+
+          await Promise.all([
+            setDoc(doc(db, 'certificateSettings', 'default'), {
+              ...syncedBig5,
+              updatedByUid: user.uid,
+              updatedAt: serverTimestamp(),
+            }),
+            setDoc(doc(db, 'recognitionTemplates', 'default'), {
+              ...syncedRecognition,
+              signatureDataUrl: '',
+              updatedByUid: user.uid,
+              updatedAt: serverTimestamp(),
+            }),
+            setDoc(doc(db, 'participationTemplates', 'default'), {
+              ...syncedParticipation,
+              updatedByUid: user.uid,
+              updatedAt: serverTimestamp(),
+            }),
+          ]);
+          setCertificateSettings(syncedBig5);
+        } catch {
+          // Template synchronization is non-blocking for saving the event itself
+        }
       }
 
       // Secondary feedback configuration write for this session
@@ -2866,7 +2976,7 @@ export default function AdminConsole({
                         <span aria-hidden="true">·</span>
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="w-3 h-3 shrink-0" />
-                          <span>{ev.venue}</span>
+                          <span>{formatEventLocation(ev.venue, ev.city)}</span>
                         </span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono-tabular">{ev.eventDate}</span>
@@ -3661,26 +3771,26 @@ export default function AdminConsole({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="ev-category"
-                    className="block text-xs font-semibold text-slate-700 mb-1.5"
-                  >
-                    Session Type *
-                  </label>
-                  <input
-                    id="ev-category"
-                    type="text"
-                    required
-                    maxLength={80}
-                    value={evCategory}
-                    onChange={(e) => setEvCategory(e.target.value)}
-                    placeholder="Type custom session type..."
-                    className="w-full min-h-[44px] px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
+              <div>
+                <label
+                  htmlFor="ev-category"
+                  className="block text-xs font-semibold text-slate-700 mb-1.5"
+                >
+                  Session Type *
+                </label>
+                <input
+                  id="ev-category"
+                  type="text"
+                  required
+                  maxLength={80}
+                  value={evCategory}
+                  onChange={(e) => setEvCategory(e.target.value)}
+                  placeholder="e.g. Professional Development, Workshop, Seminar"
+                  className="w-full min-h-[44px] px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label
                     htmlFor="ev-venue"
@@ -3695,9 +3805,50 @@ export default function AdminConsole({
                     maxLength={120}
                     value={evVenue}
                     onChange={(e) => setEvVenue(e.target.value)}
-                    placeholder="e.g. Room 204 / Auditorium"
+                    placeholder="e.g. Room 204 / Main Auditorium"
                     className="w-full min-h-[44px] px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="ev-city"
+                    className="block text-xs font-semibold text-slate-700 mb-1.5"
+                  >
+                    City Held (Customizable) *
+                  </label>
+                  <input
+                    id="ev-city"
+                    type="text"
+                    required
+                    maxLength={80}
+                    value={evCity}
+                    onChange={(e) => setEvCity(e.target.value)}
+                    placeholder="e.g. Jakarta, Cibubur, Bandung"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {['Jakarta', 'Cibubur', 'Bandung', 'Surabaya', 'Yogyakarta'].map(
+                      (cityOpt) => {
+                        const active =
+                          evCity.trim().toLowerCase() === cityOpt.toLowerCase();
+                        return (
+                          <button
+                            key={cityOpt}
+                            type="button"
+                            onClick={() => setEvCity(cityOpt)}
+                            className={`px-2 py-0.5 rounded-md border text-[11px] font-semibold transition-colors ${
+                              active
+                                ? 'border-blue-600 bg-blue-50 text-blue-800'
+                                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {cityOpt}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -3950,25 +4101,90 @@ export default function AdminConsole({
                   Customize Participant Form &amp; Certificates
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor="ev-facilitators"
-                      className="block text-xs font-semibold text-slate-700 mb-1"
-                    >
-                      Facilitators (shown on Certificate)
-                    </label>
-                    <input
-                      id="ev-facilitators"
-                      type="text"
-                      maxLength={200}
-                      value={evFacilitators}
-                      onChange={(e) => setEvFacilitators(e.target.value)}
-                      placeholder="e.g. Ms. Elena Vance, Mr. David Park"
-                      className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
+                {/* PIC of (Event) Synchronized Block */}
+                <div className="rounded-xl border border-blue-200/80 bg-blue-50/40 p-3.5 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-blue-950">
+                      PIC of (Event) — Synced to All Certificate Templates
+                    </span>
+                    <span className="text-[10px] font-semibold text-blue-700">
+                      Big 5 · Recognition · Participation
+                    </span>
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="ev-pic-title"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        PIC Role / Event Title
+                      </label>
+                      <input
+                        id="ev-pic-title"
+                        type="text"
+                        maxLength={120}
+                        value={evPicTitle}
+                        onChange={(e) => setEvPicTitle(e.target.value)}
+                        placeholder="e.g. PIC of Professional Development"
+                        className="w-full min-h-[40px] px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="ev-pic-name"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        PIC Name (shown on Certificate)
+                      </label>
+                      <input
+                        id="ev-pic-name"
+                        type="text"
+                        maxLength={120}
+                        value={evPicName}
+                        onChange={(e) => setEvPicName(e.target.value)}
+                        placeholder="e.g. Ms. Elena Vance, M.Ed."
+                        className="w-full min-h-[40px] px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from(
+                      new Set(
+                        [
+                          evCategory.trim()
+                            ? `PIC of ${evCategory.trim()}`
+                            : 'PIC of Event',
+                          'PIC of Professional Development',
+                          'PIC of Workshop',
+                          'PIC of Seminar',
+                        ].map((s) => s.slice(0, 120))
+                      )
+                    ).map((presetTitle) => {
+                      const active =
+                        evPicTitle.trim().toLowerCase() ===
+                        presetTitle.toLowerCase();
+                      return (
+                        <button
+                          key={presetTitle}
+                          type="button"
+                          onClick={() => setEvPicTitle(presetTitle)}
+                          className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                            active
+                              ? 'border-blue-600 bg-blue-100 text-blue-900'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          {presetTitle}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label
                       htmlFor="ev-principal"
@@ -3983,26 +4199,6 @@ export default function AdminConsole({
                       value={evPrincipalName}
                       onChange={(e) => setEvPrincipalName(e.target.value)}
                       placeholder="e.g. Dr. Sarah Rahman"
-                      className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor="ev-theme"
-                      className="block text-xs font-semibold text-slate-700 mb-1"
-                    >
-                      Event Theme (for Recognition &amp; Feedback)
-                    </label>
-                    <input
-                      id="ev-theme"
-                      type="text"
-                      maxLength={120}
-                      value={evTheme}
-                      onChange={(e) => setEvTheme(e.target.value)}
-                      placeholder="e.g. Future-Ready Pedagogy"
                       className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                   </div>
@@ -4025,6 +4221,43 @@ export default function AdminConsole({
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label
+                    htmlFor="ev-facilitators"
+                    className="block text-xs font-semibold text-slate-700 mb-1"
+                  >
+                    Facilitators (Optional — defaults to PIC Name for Feedback &amp; Recap)
+                  </label>
+                  <input
+                    id="ev-facilitators"
+                    type="text"
+                    maxLength={200}
+                    value={evFacilitators}
+                    onChange={(e) => setEvFacilitators(e.target.value)}
+                    placeholder="e.g. Ms. Elena Vance, Mr. David Park"
+                    className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <label
+                  htmlFor="ev-sync-certs"
+                  className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer"
+                >
+                  <input
+                    id="ev-sync-certs"
+                    type="checkbox"
+                    checked={syncEventToCertTemplates}
+                    onChange={(e) => setSyncEventToCertTemplates(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
+                  />
+                  <span className="text-xs text-slate-700 leading-snug">
+                    <strong className="text-slate-900">
+                      Sync PIC of (Event), Principal &amp; Event City
+                    </strong>{' '}
+                    automatically to Big 5, Recognition, and Participation certificate templates when saved.
+                  </span>
+                </label>
 
                 <div className="space-y-2.5">
                   <div>

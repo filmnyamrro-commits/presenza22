@@ -12,6 +12,7 @@ export interface EventRecord {
   category: EventCategory;
   description: string;
   venue: string;
+  city?: string;
   eventDate: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   lateCutoffTime: string; // HH:MM
@@ -23,6 +24,8 @@ export interface EventRecord {
   departmentLabel?: string;
   departmentPresets?: string;
   consentText?: string;
+  picTitle?: string;
+  picName?: string;
   facilitators?: string;
   principalName?: string;
   requireParticipantLogin?: boolean;
@@ -142,6 +145,7 @@ export interface CertificateSettings {
   picPdTitle: string;
   principalName: string;
   principalTitle: string;
+  cityName?: string;
   bestTerm: CertificateTermKey;
   termBestCategories: TermBestCategoryNames;
   elements: CertificateElementsMap;
@@ -295,6 +299,7 @@ export interface RecognitionTemplateConfig {
   principalName: string;
   principalTitle: string;
   principalSignatureDataUrl: string;
+  cityName?: string;
   showTopic: boolean;
   showFacilitator: boolean;
   showCertificateId: boolean;
@@ -335,6 +340,7 @@ export interface IssuedCertificateRecord {
   picPdTitle?: string;
   principalName?: string;
   principalTitle?: string;
+  cityName?: string;
   issuedByUid: string;
   issuedByEmail: string;
   createdAt: Timestamp;
@@ -385,6 +391,10 @@ export interface ParticipationCertificateRecord {
   checkInTime: string;
   attendanceStatus: AttendanceStatus;
   issueDate: string;
+  cityName?: string;
+  picPdTitle?: string;
+  picPdName?: string;
+  principalName?: string;
 }
 
 // Module 3: AI Voice Check-in Announcement

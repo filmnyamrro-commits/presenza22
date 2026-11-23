@@ -765,6 +765,7 @@ export const DEFAULT_RECOGNITION_TEMPLATE: RecognitionTemplateConfig = {
   principalName: '',
   principalTitle: 'Principal',
   principalSignatureDataUrl: '',
+  cityName: 'Jakarta',
   showTopic: true,
   showFacilitator: true,
   showCertificateId: true,
@@ -858,6 +859,10 @@ export function mergeRecognitionTemplate(
         ? partial.principalTitle.slice(0, 120)
         : DEFAULT_RECOGNITION_TEMPLATE.principalTitle,
     principalSignatureDataUrl: principalSig,
+    cityName:
+      typeof partial.cityName === 'string' && partial.cityName.trim()
+        ? partial.cityName.slice(0, 80)
+        : DEFAULT_RECOGNITION_TEMPLATE.cityName,
     showTopic:
       typeof partial.showTopic === 'boolean'
         ? partial.showTopic
@@ -871,6 +876,19 @@ export function mergeRecognitionTemplate(
         ? partial.showCertificateId
         : DEFAULT_RECOGNITION_TEMPLATE.showCertificateId,
   };
+}
+
+export function formatEventLocation(venue?: string, city?: string): string {
+  const v = (venue || '').trim();
+  const c = (city || '').trim();
+  if (!v && !c) return '';
+  if (!v) return c;
+  if (!c) return v;
+  const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`\\b${escaped}\\b`, 'i').test(v)) {
+    return v;
+  }
+  return `${v}, ${c}`;
 }
 
 export function buildCertificateDedupeKey(

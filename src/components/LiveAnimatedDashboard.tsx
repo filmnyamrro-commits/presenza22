@@ -52,6 +52,7 @@ import {
   mergeLiveBoardSettings,
   sortAttendancesChronologically,
 } from '../utils/liveDashboardLayout';
+import { formatEventLocation } from '../utils/feedbackAndRecognitionDefaults';
 import {
   buildCheckInQrUrl,
   normalizeAndValidatePublicUrl,
@@ -787,7 +788,12 @@ export default function LiveAnimatedDashboard({
                 <>
                   <span className="inline-flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" />
-                    <span>{selectedEvent.venue}</span>
+                    <span>
+                      {formatEventLocation(
+                        selectedEvent.venue,
+                        selectedEvent.city
+                      )}
+                    </span>
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="font-mono-tabular">

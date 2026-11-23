@@ -61,6 +61,7 @@ import {
   buildDefaultFeedbackConfig,
   buildFeedbackConfigWritePayload,
   evaluateFeedbackSchedule,
+  formatEventLocation,
   formatScheduleCountdown,
   formatScheduleDateTime,
   isoToLocalDateAndTime,
@@ -971,7 +972,7 @@ export default function AdminFeedbackModule({
                 </div>
                 <div className="text-sm font-semibold text-slate-900">
                   {selectedRecapEvent
-                    ? `${selectedRecapEvent.title} · ${selectedRecapEvent.eventDate} · ${selectedRecapEvent.venue}`
+                    ? `${selectedRecapEvent.title} · ${selectedRecapEvent.eventDate} · ${formatEventLocation(selectedRecapEvent.venue, selectedRecapEvent.city)}`
                     : `All Events (${events.length} ${events.length === 1 ? 'session' : 'sessions'})`}
                 </div>
               </div>

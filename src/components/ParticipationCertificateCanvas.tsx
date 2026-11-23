@@ -9,6 +9,7 @@ import {
 } from '../utils/dateTime';
 import {
   DEFAULT_PARTICIPATION_TEMPLATE,
+  formatEventLocation,
   interpolateRecognitionWording,
 } from '../utils/feedbackAndRecognitionDefaults';
 
@@ -25,6 +26,10 @@ interface ParticipationCertificateCanvasProps {
   certificateNumber: string;
   issueDate: string;
   overrideLanguage?: ParticipationLanguageFormat;
+  cityName?: string;
+  overridePicPdName?: string;
+  overridePicPdTitle?: string;
+  overridePrincipalName?: string;
 }
 
 export default function ParticipationCertificateCanvas({
@@ -40,6 +45,10 @@ export default function ParticipationCertificateCanvas({
   certificateNumber,
   issueDate,
   overrideLanguage,
+  cityName: cityNameOverride,
+  overridePicPdName,
+  overridePicPdTitle,
+  overridePrincipalName,
 }: ParticipationCertificateCanvasProps) {
   const lang: ParticipationLanguageFormat =
     overrideLanguage || template.languageFormat || 'bilingual';
@@ -58,11 +67,23 @@ export default function ParticipationCertificateCanvas({
     eventDate || issueDate
   );
 
-  const cityName = template.cityName?.trim() || 'Jakarta';
+  const cityName =
+    cityNameOverride?.trim() || template.cityName?.trim() || 'Jakarta';
   const cityDateText =
     lang === 'bahasa'
       ? `${cityName}, ${formattedIssueId}`
       : `${cityName}, ${formattedIssueEn}`;
+
+  const resolvedPicPdName =
+    overridePicPdName?.trim() || template.picPdName.trim();
+  const resolvedPicPdTitle =
+    overridePicPdTitle?.trim() ||
+    template.picPdTitle.trim() ||
+    'PIC of Professional Development';
+  const resolvedPrincipalName =
+    overridePrincipalName?.trim() || template.principalName.trim();
+  const resolvedVenueLabel =
+    formatEventLocation(eventVenue, cityName) || eventVenue;
 
   const wordingEn = interpolateRecognitionWording(
     template.wordingEn || DEFAULT_PARTICIPATION_TEMPLATE.wordingEn,
@@ -71,9 +92,9 @@ export default function ParticipationCertificateCanvas({
       category: 'Participant',
       event: eventTitle,
       date: formattedEventDateEn,
-      venue: eventVenue,
+      venue: resolvedVenueLabel,
       topic: eventTopic,
-      facilitator: template.picPdName.trim() || facilitators,
+      facilitator: resolvedPicPdName || facilitators,
       organizer: organizerName,
       department: participantDepartment,
     }
@@ -86,9 +107,9 @@ export default function ParticipationCertificateCanvas({
       category: 'Peserta',
       event: eventTitle,
       date: formattedEventDateId,
-      venue: eventVenue,
+      venue: resolvedVenueLabel,
       topic: eventTopic,
-      facilitator: template.picPdName.trim() || facilitators,
+      facilitator: resolvedPicPdName || facilitators,
       organizer: organizerName,
       department: participantDepartment,
     }
@@ -288,16 +309,16 @@ export default function ParticipationCertificateCanvas({
                 />
               )}
             </div>
-            {template.picPdName.trim() && (
+            {resolvedPicPdName && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full leading-tight"
                 style={{ color: template.primaryColor }}
               >
-                {template.picPdName.trim()}
+                {resolvedPicPdName}
               </div>
             )}
             <div className="w-full border-t border-slate-300 pt-0.5 text-slate-600 font-medium truncate">
-              {template.picPdTitle.trim() || 'PIC of Professional Development'}
+              {resolvedPicPdTitle}
             </div>
           </div>
 
@@ -314,12 +335,12 @@ export default function ParticipationCertificateCanvas({
                 />
               )}
             </div>
-            {template.principalName.trim() && (
+            {resolvedPrincipalName && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full leading-tight"
                 style={{ color: template.primaryColor }}
               >
-                {template.principalName.trim()}
+                {resolvedPrincipalName}
               </div>
             )}
             <div className="w-full border-t border-slate-300 pt-0.5 text-slate-600 font-medium truncate">

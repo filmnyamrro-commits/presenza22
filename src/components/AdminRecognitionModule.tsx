@@ -73,6 +73,7 @@ import {
   DEFAULT_RECOGNITION_CATEGORIES,
   DEFAULT_RECOGNITION_TEMPLATE,
   DEFAULT_TERM_BEST_CATEGORIES,
+  formatEventLocation,
   generateCertificateNumber,
   interpolateRecognitionWording,
   mergeParticipationTemplate,
@@ -208,6 +209,10 @@ interface RecognitionCertificateCanvasProps {
   topicText?: string;
   certificateNumber: string;
   issueDate: string;
+  cityName?: string;
+  overridePicPdName?: string;
+  overridePicPdTitle?: string;
+  overridePrincipalName?: string;
 }
 
 function RecognitionCertificateCanvas({
@@ -223,10 +228,24 @@ function RecognitionCertificateCanvas({
   topicText,
   certificateNumber,
   issueDate,
+  cityName,
+  overridePicPdName,
+  overridePicPdTitle,
+  overridePrincipalName,
 }: RecognitionCertificateCanvasProps) {
   const formattedIssueDate = formatCertificateIssueDate(issueDate);
   const topicDisplay =
     template.showTopic && topicText?.trim() ? topicText.trim() : '';
+  const resolvedCityName =
+    cityName?.trim() || template.cityName?.trim() || 'Jakarta';
+  const resolvedPicPdName =
+    overridePicPdName?.trim() || template.picPdName.trim();
+  const resolvedPicPdTitle =
+    overridePicPdTitle?.trim() ||
+    template.picPdTitle.trim() ||
+    'PIC of Professional Development';
+  const resolvedPrincipalName =
+    overridePrincipalName?.trim() || template.principalName.trim();
 
   return (
     <div
@@ -360,22 +379,22 @@ function RecognitionCertificateCanvas({
                 />
               )}
             </div>
-            {template.picPdName.trim() && (
+            {resolvedPicPdName && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full leading-tight"
                 style={{ color: template.primaryColor }}
               >
-                {template.picPdName.trim()}
+                {resolvedPicPdName}
               </div>
             )}
             <div className="w-full border-t border-slate-300 pt-0.5 text-slate-600 font-medium truncate">
-              {template.picPdTitle.trim() || 'PIC of Professional Development'}
+              {resolvedPicPdTitle}
             </div>
           </div>
 
           <div className="flex flex-col items-center justify-end">
             <div className="text-[9px] sm:text-[10px] text-slate-700 mb-0.5 whitespace-nowrap leading-tight">
-              Jakarta, {formattedIssueDate}
+              {resolvedCityName}, {formattedIssueDate}
             </div>
             <div className="h-7 sm:h-8 flex items-end justify-center w-full mb-0.5">
               {template.principalSignatureDataUrl && (
@@ -386,12 +405,12 @@ function RecognitionCertificateCanvas({
                 />
               )}
             </div>
-            {template.principalName.trim() && (
+            {resolvedPrincipalName && (
               <div
                 className="font-bold pb-0.5 truncate max-w-full leading-tight"
                 style={{ color: template.primaryColor }}
               >
-                {template.principalName.trim()}
+                {resolvedPrincipalName}
               </div>
             )}
             <div className="w-full border-t border-slate-300 pt-0.5 text-slate-600 font-medium truncate">
@@ -1020,14 +1039,32 @@ export default function AdminRecognitionModule({
       templateConfig.bestTerm,
       templateConfig.termBestCategories
     ).slice(0, 100);
-    const picPdNameVal = templateConfig.picPdName.trim().slice(0, 120);
-    const picPdTitleVal = (
-      templateConfig.picPdTitle.trim() || 'PIC of Professional Development'
+    const cityNameVal = (
+      selectedEvent.city?.trim() ||
+      templateConfig.cityName?.trim() ||
+      'Jakarta'
+    ).slice(0, 80);
+    const picPdNameVal = (
+      selectedEvent.picName?.trim() ||
+      templateConfig.picPdName.trim() ||
+      ''
     ).slice(0, 120);
-    const principalNameVal = templateConfig.principalName.trim().slice(0, 120);
+    const picPdTitleVal = (
+      selectedEvent.picTitle?.trim() ||
+      templateConfig.picPdTitle.trim() ||
+      'PIC of Professional Development'
+    ).slice(0, 120);
+    const principalNameVal = (
+      selectedEvent.principalName?.trim() ||
+      templateConfig.principalName.trim() ||
+      ''
+    ).slice(0, 120);
     const principalTitleVal = (
       templateConfig.principalTitle.trim() || 'Principal'
     ).slice(0, 120);
+    const formattedEventVenue =
+      formatEventLocation(selectedEvent.venue, cityNameVal) ||
+      selectedEvent.venue;
 
     let createdCount = 0;
     try {
@@ -1057,7 +1094,7 @@ export default function AdminRecognitionModule({
               category: selectedCategory.name,
               event: selectedEvent.title,
               date: eventDateVal,
-              venue: selectedEvent.venue,
+              venue: formattedEventVenue,
               topic: eventTopicVal,
               theme: eventThemeVal,
               facilitator: picPdNameVal || facilitatorsVal,
@@ -1073,6 +1110,7 @@ export default function AdminRecognitionModule({
             eventTitle: selectedEvent.title.slice(0, 140),
             eventDate: eventDateVal,
             eventVenue: (selectedEvent.venue || '').slice(0, 120),
+            cityName: cityNameVal,
             eventTheme: eventThemeVal,
             eventTopic: eventTopicVal,
             facilitators: facilitatorsVal,
@@ -1334,6 +1372,7 @@ export default function AdminRecognitionModule({
           themeId: draftThemeId,
           backgroundDataUrl: draftBgDataUrl,
           backgroundOpacity: draftBgOpacity,
+          cityName: clean.cityName || 'Jakarta',
           bestTerm: clean.bestTerm,
           termBestCategories: clean.termBestCategories,
           picPdName: clean.picPdName,
@@ -1345,6 +1384,22 @@ export default function AdminRecognitionModule({
         });
         await onSyncCertificateSettings(syncedCertSettings);
       }
+
+      const syncedParticipation = mergeParticipationTemplate({
+        ...participationTemplate,
+        cityName: clean.cityName || 'Jakarta',
+        picPdName: clean.picPdName,
+        picPdTitle: clean.picPdTitle,
+        picPdSignatureDataUrl: clean.picPdSignatureDataUrl,
+        principalName: clean.principalName,
+        principalTitle: clean.principalTitle,
+        principalSignatureDataUrl: clean.principalSignatureDataUrl,
+      });
+      await setDoc(doc(db, 'participationTemplates', 'default'), {
+        ...syncedParticipation,
+        updatedByUid: user.uid,
+        updatedAt: serverTimestamp(),
+      });
 
       setTemplateSaved(true);
       window.setTimeout(() => setTemplateSaved(false), 3000);
@@ -1522,11 +1577,16 @@ export default function AdminRecognitionModule({
       category: selectedCategory?.name || 'Best Participant',
       event: ev?.title || 'Teacher Professional Development Workshop',
       date: ev?.eventDate || formatLocalDateYmd(new Date()),
-      venue: ev?.venue || 'Main Conference Hall',
+      venue:
+        formatEventLocation(ev?.venue, ev?.city || draftTemplate.cityName) ||
+        'Main Conference Hall',
       topic: ev?.topic || ev?.category || 'Instructional Excellence',
       theme: ev?.theme || '',
       facilitator:
-        draftTemplate.picPdName.trim() || ev?.facilitators || 'Ms. Elena Vance',
+        ev?.picName?.trim() ||
+        draftTemplate.picPdName.trim() ||
+        ev?.facilitators ||
+        'Ms. Elena Vance',
       organizer: branding?.organizationName || 'PRESENZA Academy',
       department:
         eventParticipants[0]?.record.classDepartment || 'Curriculum Team',
@@ -1534,6 +1594,7 @@ export default function AdminRecognitionModule({
   }, [
     draftTemplate.wordingTemplate,
     draftTemplate.picPdName,
+    draftTemplate.cityName,
     selectedEvent,
     events,
     eventParticipants,
@@ -1705,7 +1766,7 @@ export default function AdminRecognitionModule({
             </div>
 
             {selectedEvent && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-xs">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
                 <div>
                   <div className="text-slate-500 font-medium">Event Date</div>
                   <div className="font-mono-tabular font-bold text-slate-900 mt-0.5">
@@ -1715,13 +1776,7 @@ export default function AdminRecognitionModule({
                 <div>
                   <div className="text-slate-500 font-medium">Location</div>
                   <div className="font-bold text-slate-900 truncate mt-0.5">
-                    {selectedEvent.venue}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500 font-medium">Theme</div>
-                  <div className="font-bold text-slate-900 truncate mt-0.5">
-                    {selectedEvent.theme?.trim() || '—'}
+                    {formatEventLocation(selectedEvent.venue, selectedEvent.city)}
                   </div>
                 </div>
                 <div>
@@ -1731,9 +1786,14 @@ export default function AdminRecognitionModule({
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 font-medium">Facilitators</div>
+                  <div className="text-slate-500 font-medium truncate">
+                    {selectedEvent.picTitle?.trim() || 'PIC of Event'}
+                  </div>
                   <div className="font-bold text-slate-900 truncate mt-0.5">
-                    {selectedEvent.facilitators?.trim() || 'Session Facilitator'}
+                    {selectedEvent.picName?.trim() ||
+                      selectedEvent.facilitators?.trim() ||
+                      templateConfig.picPdName?.trim() ||
+                      '—'}
                   </div>
                 </div>
                 <div>
@@ -3520,11 +3580,34 @@ export default function AdminRecognitionModule({
 
                   <div>
                     <div className="text-xs font-bold text-slate-900">
-                      Bottom Signatories (Native Template)
+                      City &amp; Bottom Signatories (Synced Across Templates)
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Customize names, role titles, and signatures for PIC of Professional Development and Principal.
+                      Customize the city above the Principal signature, plus names, role titles, and signatures for PIC of (Event) and Principal.
                     </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="rec-city-input"
+                      className="block text-[11px] font-semibold text-slate-700 mb-1"
+                    >
+                      City Above Principal Signature
+                    </label>
+                    <input
+                      id="rec-city-input"
+                      type="text"
+                      maxLength={80}
+                      value={draftTemplate.cityName || 'Jakarta'}
+                      onChange={(e) =>
+                        setDraftTemplate((prev) => ({
+                          ...prev,
+                          cityName: e.target.value,
+                        }))
+                      }
+                      placeholder="Jakarta"
+                      className="w-full min-h-[36px] px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg"
+                    />
                   </div>
 
                   {(
@@ -3830,6 +3913,14 @@ export default function AdminRecognitionModule({
               }
               certificateNumber="PRZ-2026-SAMPLE"
               issueDate={formatLocalDateYmd(new Date())}
+              cityName={
+                selectedEvent?.city?.trim() ||
+                draftTemplate.cityName?.trim() ||
+                'Jakarta'
+              }
+              overridePicPdName={selectedEvent?.picName?.trim()}
+              overridePicPdTitle={selectedEvent?.picTitle?.trim()}
+              overridePrincipalName={selectedEvent?.principalName?.trim()}
             />
           </section>
         </div>
@@ -3926,13 +4017,38 @@ export default function AdminRecognitionModule({
                 const resolvedEventDate =
                   liveEvent?.eventDate?.trim() || previewCert.eventDate;
                 const resolvedEventVenue =
-                  liveEvent?.venue?.trim() || previewCert.eventVenue;
+                  formatEventLocation(
+                    liveEvent?.venue?.trim() || previewCert.eventVenue,
+                    liveEvent?.city?.trim() || previewCert.cityName
+                  ) ||
+                  liveEvent?.venue?.trim() ||
+                  previewCert.eventVenue;
                 const resolvedEventTopic =
                   liveEvent?.topic?.trim() ||
                   liveEvent?.category?.trim() ||
                   previewCert.eventTopic;
                 const resolvedEventTheme =
                   liveEvent?.theme?.trim() || previewCert.eventTheme;
+                const resolvedCityName =
+                  liveEvent?.city?.trim() ||
+                  previewCert.cityName?.trim() ||
+                  templateConfig.cityName?.trim() ||
+                  'Jakarta';
+                const resolvedPicName =
+                  liveEvent?.picName?.trim() ||
+                  templateConfig.picPdName.trim() ||
+                  previewCert.picPdName ||
+                  '';
+                const resolvedPicTitle =
+                  liveEvent?.picTitle?.trim() ||
+                  templateConfig.picPdTitle.trim() ||
+                  previewCert.picPdTitle ||
+                  'PIC of Professional Development';
+                const resolvedPrincipalName =
+                  liveEvent?.principalName?.trim() ||
+                  templateConfig.principalName.trim() ||
+                  previewCert.principalName ||
+                  '';
                 const resolvedWording = interpolateRecognitionWording(
                   templateConfig.wordingTemplate,
                   {
@@ -3944,7 +4060,7 @@ export default function AdminRecognitionModule({
                     topic: resolvedEventTopic,
                     theme: resolvedEventTheme,
                     facilitator:
-                      templateConfig.picPdName.trim() ||
+                      resolvedPicName ||
                       liveEvent?.facilitators ||
                       previewCert.facilitators,
                     organizer: resolvedOrganizer,
@@ -3970,6 +4086,10 @@ export default function AdminRecognitionModule({
                     topicText={resolvedEventTopic}
                     certificateNumber={previewCert.certificateNumber}
                     issueDate={previewCert.issueDate}
+                    cityName={resolvedCityName}
+                    overridePicPdName={resolvedPicName}
+                    overridePicPdTitle={resolvedPicTitle}
+                    overridePrincipalName={resolvedPrincipalName}
                   />
                 );
               })()}

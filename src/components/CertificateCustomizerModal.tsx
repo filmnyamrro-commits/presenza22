@@ -130,12 +130,19 @@ export default function CertificateCustomizerModal({
     draft.termBestCategories
   );
   const previewPicPdName =
-    draft.picPdName.trim() || sampleEvent?.facilitators?.trim() || '';
+    sampleEvent?.picName?.trim() ||
+    draft.picPdName.trim() ||
+    sampleEvent?.facilitators?.trim() ||
+    '';
   const previewPicPdTitle =
-    draft.picPdTitle.trim() || 'PIC of Professional Development';
+    sampleEvent?.picTitle?.trim() ||
+    draft.picPdTitle.trim() ||
+    'PIC of Professional Development';
   const previewPrincipalName =
-    draft.principalName.trim() || sampleEvent?.principalName?.trim() || '';
+    sampleEvent?.principalName?.trim() || draft.principalName.trim() || '';
   const previewPrincipalTitle = draft.principalTitle.trim() || 'Principal';
+  const previewCityName =
+    sampleEvent?.city?.trim() || draft.cityName?.trim() || 'Jakarta';
   const previewOrgName = branding?.organizationName?.trim() || 'Your School / Company';
   const previewIssueDate = formatCertificateIssueDate(
     formatLocalDateYmd(new Date())
@@ -881,7 +888,7 @@ export default function CertificateCustomizerModal({
                     }`}
                   >
                     <div className="text-[clamp(5px,0.72vw,8px)] text-slate-700 whitespace-nowrap mb-0.5">
-                      Jakarta, {previewIssueDate}
+                      {previewCityName}, {previewIssueDate}
                     </div>
                     <div className="min-h-[16px] sm:min-h-[24px] flex items-end justify-center mb-0.5">
                       {draft.principalSignatureDataUrl && (
@@ -1406,8 +1413,31 @@ export default function CertificateCustomizerModal({
               {activeTab === 'signatures' && (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Customize the names and upload or draw digital signatures for the native bottom signatories: <strong>PIC of Professional Development</strong> and <strong>Principal</strong>.
+                    Customize the city, signatory names, and digital signatures for <strong>PIC of (Event)</strong> and <strong>Principal</strong> (synchronized across all certificate templates).
                   </p>
+
+                  <div>
+                    <label
+                      htmlFor="modal-cert-city"
+                      className="block text-xs font-semibold text-slate-700 mb-1"
+                    >
+                      City Above Principal Signature
+                    </label>
+                    <input
+                      id="modal-cert-city"
+                      type="text"
+                      maxLength={80}
+                      value={draft.cityName || 'Jakarta'}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          cityName: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g., Jakarta"
+                      className="w-full min-h-[38px] px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
 
                   <input
                     ref={facSigInputRef}

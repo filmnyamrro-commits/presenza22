@@ -102,17 +102,18 @@ service cloud.firestore {
           'createdByUid', 'createdAt', 'updatedAt'
         ]) &&
         data.keys().hasOnly([
-          'title', 'category', 'description', 'venue', 'eventDate',
+          'title', 'category', 'description', 'venue', 'city', 'eventDate',
           'startTime', 'lateCutoffTime', 'cutoffTimestamp', 'status',
           'createdByUid', 'createdAt', 'updatedAt',
           'departmentLabel', 'departmentPresets', 'consentText',
-          'facilitators', 'principalName', 'requireParticipantLogin',
+          'facilitators', 'picTitle', 'picName', 'principalName', 'requireParticipantLogin',
           'theme', 'topic'
         ]) &&
         data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
         data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
         data.description is string && data.description.size() <= 500 &&
         data.venue is string && data.venue.size() >= 1 && data.venue.size() <= 120 &&
+        (!('city' in data) || (data.city is string && data.city.size() <= 80)) &&
         data.eventDate is string && data.eventDate.size() == 10 && data.eventDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
         data.startTime is string && data.startTime.size() == 5 && data.startTime.matches('^[0-9]{2}:[0-9]{2}$') &&
         data.lateCutoffTime is string && data.lateCutoffTime.size() == 5 && data.lateCutoffTime.matches('^[0-9]{2}:[0-9]{2}$') &&
@@ -125,6 +126,8 @@ service cloud.firestore {
         (!('departmentPresets' in data) || (data.departmentPresets is string && data.departmentPresets.size() <= 300)) &&
         (!('consentText' in data) || (data.consentText is string && data.consentText.size() <= 400)) &&
         (!('facilitators' in data) || (data.facilitators is string && data.facilitators.size() <= 200)) &&
+        (!('picTitle' in data) || (data.picTitle is string && data.picTitle.size() <= 120)) &&
+        (!('picName' in data) || (data.picName is string && data.picName.size() <= 120)) &&
         (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
         (!('requireParticipantLogin' in data) || data.requireParticipantLogin is bool) &&
         (!('theme' in data) || (data.theme is string && data.theme.size() <= 120)) &&
@@ -223,7 +226,7 @@ service cloud.firestore {
         data.keys().hasOnly([
           'themeId', 'backgroundDataUrl', 'backgroundOpacity',
           'facilitatorSignatureDataUrl', 'principalSignatureDataUrl',
-          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle', 'cityName',
           'bestTerm', 'termBestCategories',
           'elements', 'updatedByUid', 'updatedAt'
         ]) &&
@@ -238,6 +241,7 @@ service cloud.firestore {
         (!('picPdTitle' in data) || (data.picPdTitle is string && data.picPdTitle.size() <= 120)) &&
         (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
         (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
+        (!('cityName' in data) || (data.cityName is string && data.cityName.size() <= 80)) &&
         (!('bestTerm' in data) || isValidBestTerm(data.bestTerm)) &&
         (!('termBestCategories' in data) || isValidTermBestCategories(data.termBestCategories)) &&
         data.elements is map &&
@@ -448,7 +452,7 @@ service cloud.firestore {
           'customLogoDataUrl', 'signatureDataUrl', 'signatoryLabel',
           'bestTerm', 'termBestCategories',
           'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
-          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl', 'cityName',
           'showTopic', 'showFacilitator', 'showCertificateId',
           'updatedByUid', 'updatedAt'
         ]) &&
@@ -471,6 +475,7 @@ service cloud.firestore {
         (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
         (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
         (!('principalSignatureDataUrl' in data) || isValidOptionalImage(data.principalSignatureDataUrl, 150000)) &&
+        (!('cityName' in data) || (data.cityName is string && data.cityName.size() <= 80)) &&
         data.showTopic is bool &&
         data.showFacilitator is bool &&
         data.showCertificateId is bool &&
@@ -547,7 +552,7 @@ service cloud.firestore {
           'issueDate', 'selectionMethod',
           'orientation', 'certificateTitle', 'certificateSubtitle', 'wordingText',
           'fontFamily', 'primaryColor', 'accentColor', 'paperColor', 'signatoryLabel',
-          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle', 'cityName',
           'issuedByUid', 'issuedByEmail', 'createdAt'
         ]) &&
         data.certificateNumber is string && data.certificateNumber.size() >= 4 && data.certificateNumber.size() <= 40 &&
@@ -583,6 +588,7 @@ service cloud.firestore {
         (!('picPdTitle' in data) || (data.picPdTitle is string && data.picPdTitle.size() <= 120)) &&
         (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
         (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
+        (!('cityName' in data) || (data.cityName is string && data.cityName.size() <= 80)) &&
         isValidId(data.issuedByUid) &&
         isValidEmail(data.issuedByEmail) &&
         data.createdAt is timestamp;
@@ -693,10 +699,10 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'title', 'category', 'description', 'venue', 'eventDate',
+          'title', 'category', 'description', 'venue', 'city', 'eventDate',
           'startTime', 'lateCutoffTime', 'cutoffTimestamp', 'status', 'updatedAt',
           'departmentLabel', 'departmentPresets', 'consentText',
-          'facilitators', 'principalName', 'requireParticipantLogin',
+          'facilitators', 'picTitle', 'picName', 'principalName', 'requireParticipantLogin',
           'theme', 'topic'
         ]);
       allow delete: if isAdmin() && isValidId(eventId);
@@ -807,7 +813,7 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly([
           'themeId', 'backgroundDataUrl', 'backgroundOpacity',
           'facilitatorSignatureDataUrl', 'principalSignatureDataUrl',
-          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle', 'cityName',
           'bestTerm', 'termBestCategories',
           'elements', 'updatedByUid', 'updatedAt'
         ]);
@@ -931,7 +937,7 @@ service cloud.firestore {
           'customLogoDataUrl', 'signatureDataUrl', 'signatoryLabel',
           'bestTerm', 'termBestCategories',
           'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
-          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl', 'cityName',
           'showTopic', 'showFacilitator', 'showCertificateId',
           'updatedByUid', 'updatedAt'
         ]);

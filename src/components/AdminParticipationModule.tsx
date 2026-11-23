@@ -42,7 +42,9 @@ import { formatLocalDateYmd } from '../utils/dateTime';
 import {
   buildParticipationCertificateNumber,
   DEFAULT_PARTICIPATION_TEMPLATE,
+  formatEventLocation,
   mergeParticipationTemplate,
+  mergeRecognitionTemplate,
   PARTICIPATION_WORDING_PRESETS,
 } from '../utils/feedbackAndRecognitionDefaults';
 import {
@@ -54,6 +56,7 @@ import {
 import {
   CERTIFICATE_THEME_LIST,
   downloadParticipationCertificatesPdf,
+  mergeCertificateSettings,
   printParticipationCertificatesPdf,
 } from '../utils/pdfExport';
 import ParticipationCertificateCanvas from './ParticipationCertificateCanvas';
@@ -205,6 +208,22 @@ export default function AdminParticipationModule({
       eventTitle: selectedEvent.title,
       eventDate: evDate,
       eventVenue: selectedEvent.venue || '',
+      cityName:
+        selectedEvent.city?.trim() ||
+        participationTemplate.cityName?.trim() ||
+        'Jakarta',
+      picPdTitle:
+        selectedEvent.picTitle?.trim() ||
+        participationTemplate.picPdTitle?.trim() ||
+        'PIC of Professional Development',
+      picPdName:
+        selectedEvent.picName?.trim() ||
+        participationTemplate.picPdName?.trim() ||
+        '',
+      principalName:
+        selectedEvent.principalName?.trim() ||
+        participationTemplate.principalName?.trim() ||
+        '',
       eventTopic: selectedEvent.topic?.trim() || selectedEvent.category || '',
       facilitators: selectedEvent.facilitators?.trim() || '',
       organizerName,
@@ -217,7 +236,7 @@ export default function AdminParticipationModule({
         ? rec.attendanceDate
         : evDate,
     }));
-  }, [selectedEvent, attendances, organizerName]);
+  }, [selectedEvent, attendances, organizerName, participationTemplate]);
 
   const filteredCerts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -401,6 +420,10 @@ export default function AdminParticipationModule({
         typeof certificateSettings.backgroundOpacity === 'number'
           ? certificateSettings.backgroundOpacity
           : prev.backgroundOpacity,
+      cityName:
+        recognitionTemplate.cityName ||
+        certificateSettings.cityName ||
+        prev.cityName,
       picPdName: recognitionTemplate.picPdName || certificateSettings.picPdName || prev.picPdName,
       picPdTitle:
         recognitionTemplate.picPdTitle ||
@@ -473,6 +496,53 @@ export default function AdminParticipationModule({
         updatedByUid: user.uid,
         updatedAt: serverTimestamp(),
       });
+
+      // Synchronize City & Signatories across Big 5 & Recognition Certificate Templates
+      const cleanCity = normalized.cityName.trim().slice(0, 80) || 'Jakarta';
+      const cleanPicName = normalized.picPdName.trim().slice(0, 120);
+      const cleanPicTitle =
+        normalized.picPdTitle.trim().slice(0, 120) ||
+        'PIC of Professional Development';
+      const cleanPrincipalName = normalized.principalName.trim().slice(0, 120);
+      const cleanPrincipalTitle =
+        normalized.principalTitle.trim().slice(0, 120) || 'Principal';
+
+      const syncedBig5 = mergeCertificateSettings({
+        ...certificateSettings,
+        cityName: cleanCity,
+        picPdName: cleanPicName,
+        picPdTitle: cleanPicTitle,
+        principalName: cleanPrincipalName,
+        principalTitle: cleanPrincipalTitle,
+        facilitatorSignatureDataUrl: normalized.picPdSignatureDataUrl || '',
+        principalSignatureDataUrl: normalized.principalSignatureDataUrl || '',
+      });
+      const syncedRecognition = mergeRecognitionTemplate({
+        ...recognitionTemplate,
+        cityName: cleanCity,
+        picPdName: cleanPicName,
+        picPdTitle: cleanPicTitle,
+        signatoryLabel: cleanPicTitle,
+        picPdSignatureDataUrl: normalized.picPdSignatureDataUrl || '',
+        principalName: cleanPrincipalName,
+        principalTitle: cleanPrincipalTitle,
+        principalSignatureDataUrl: normalized.principalSignatureDataUrl || '',
+      });
+
+      await Promise.all([
+        setDoc(doc(db, 'certificateSettings', 'default'), {
+          ...syncedBig5,
+          updatedByUid: user.uid,
+          updatedAt: serverTimestamp(),
+        }),
+        setDoc(doc(db, 'recognitionTemplates', 'default'), {
+          ...syncedRecognition,
+          signatureDataUrl: '',
+          updatedByUid: user.uid,
+          updatedAt: serverTimestamp(),
+        }),
+      ]);
+
       setTemplateSaved(true);
       window.setTimeout(() => setTemplateSaved(false), 3000);
     } catch (error) {
@@ -505,6 +575,14 @@ export default function AdminParticipationModule({
       eventTitle: ev?.title || 'Teacher Professional Development Workshop',
       eventDate: ev?.eventDate || todayYmd,
       eventVenue: ev?.venue || 'Main Conference Hall',
+      cityName: ev?.city?.trim() || draft.cityName?.trim() || 'Jakarta',
+      picPdTitle:
+        ev?.picTitle?.trim() ||
+        draft.picPdTitle?.trim() ||
+        'PIC of Professional Development',
+      picPdName: ev?.picName?.trim() || draft.picPdName?.trim() || '',
+      principalName:
+        ev?.principalName?.trim() || draft.principalName?.trim() || '',
       eventTopic:
         ev?.topic?.trim() || ev?.category || 'Instructional Leadership',
       facilitators: ev?.facilitators?.trim() || 'Ms. Elena Vance',
@@ -516,7 +594,16 @@ export default function AdminParticipationModule({
       attendanceStatus: 'On Time',
       issueDate: ev?.eventDate || todayYmd,
     };
-  }, [allEventParticipationCerts, selectedEvent, events, organizerName]);
+  }, [
+    allEventParticipationCerts,
+    selectedEvent,
+    events,
+    organizerName,
+    draft.cityName,
+    draft.picPdTitle,
+    draft.picPdName,
+    draft.principalName,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -697,7 +784,7 @@ export default function AdminParticipationModule({
                 <div>
                   <div className="text-slate-500 font-medium">Location</div>
                   <div className="font-bold text-slate-900 truncate mt-0.5">
-                    {selectedEvent.venue}
+                    {formatEventLocation(selectedEvent.venue, selectedEvent.city)}
                   </div>
                 </div>
                 <div>
@@ -1798,6 +1885,10 @@ export default function AdminParticipationModule({
               facilitators={samplePreviewCert.facilitators}
               certificateNumber={samplePreviewCert.certificateNumber}
               issueDate={samplePreviewCert.issueDate}
+              cityName={draft.cityName}
+              overridePicPdName={draft.picPdName}
+              overridePicPdTitle={draft.picPdTitle}
+              overridePrincipalName={draft.principalName}
             />
           </div>
         </div>
@@ -1845,6 +1936,10 @@ export default function AdminParticipationModule({
                 certificateNumber={previewRecord.certificateNumber}
                 issueDate={previewRecord.issueDate}
                 overrideLanguage={activeDownloadLanguage}
+                cityName={previewRecord.cityName}
+                overridePicPdName={previewRecord.picPdName}
+                overridePicPdTitle={previewRecord.picPdTitle}
+                overridePrincipalName={previewRecord.principalName}
               />
             </div>
 

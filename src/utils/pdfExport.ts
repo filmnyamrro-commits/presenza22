@@ -24,6 +24,7 @@ import {
 import {
   DEFAULT_PARTICIPATION_TEMPLATE,
   DEFAULT_TERM_BEST_CATEGORIES,
+  formatEventLocation,
   interpolateRecognitionWording,
   mergeParticipationTemplate,
   mergeTermBestCategories,
@@ -247,6 +248,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS: CertificateSettings = {
   picPdTitle: 'PIC of Professional Development',
   principalName: '',
   principalTitle: 'Principal',
+  cityName: 'Jakarta',
   bestTerm: 'none',
   termBestCategories: { ...DEFAULT_TERM_BEST_CATEGORIES },
   elements: DEFAULT_CERTIFICATE_ELEMENTS,
@@ -312,6 +314,10 @@ export function mergeCertificateSettings(
       partial.principalTitle.trim()
         ? partial.principalTitle.slice(0, 120)
         : DEFAULT_CERTIFICATE_SETTINGS.principalTitle,
+    cityName:
+      typeof partial?.cityName === 'string' && partial.cityName.trim()
+        ? partial.cityName.slice(0, 80)
+        : DEFAULT_CERTIFICATE_SETTINGS.cityName,
     bestTerm: normalizeBestTermKey(partial?.bestTerm),
     termBestCategories: mergeTermBestCategories(partial?.termBestCategories),
     elements: mergedElements,
@@ -455,7 +461,7 @@ export function downloadRecapitulationPdf(
       ],
       [
         'Location / Venue',
-        effectiveEvent.venue || '—',
+        formatEventLocation(effectiveEvent.venue, effectiveEvent.city) || '—',
         'Event Date',
         effectiveEvent.eventDate || '—',
       ],
@@ -467,7 +473,10 @@ export function downloadRecapitulationPdf(
       ],
     ];
 
-    const facilitatorsValue = effectiveEvent.facilitators?.trim() || '—';
+    const facilitatorsValue =
+      effectiveEvent.picName?.trim() ||
+      effectiveEvent.facilitators?.trim() ||
+      '—';
     const descriptionValue = effectiveEvent.description?.trim() || '';
 
     const labelColW = 30;
@@ -552,8 +561,9 @@ export function downloadRecapitulationPdf(
         ? includedEvents.slice(0, 6).map((ev) => {
             const extra = [
               ev.category,
-              ev.venue,
+              formatEventLocation(ev.venue, ev.city),
               `${ev.eventDate} ${ev.startTime} (Cutoff ${ev.lateCutoffTime})`,
+              ev.picName ? `${ev.picTitle || 'PIC'}: ${ev.picName}` : '',
               ev.facilitators ? `Facilitators: ${ev.facilitators}` : '',
               ev.principalName ? `Principal: ${ev.principalName}` : '',
             ]
@@ -1108,16 +1118,21 @@ function drawCertificatePage(
   }
 
   const picPdNameText =
+    event?.picName?.trim() ||
     settings.picPdName.trim() ||
     event?.facilitators?.trim() ||
     '';
   const picPdTitleText =
-    settings.picPdTitle.trim() || 'PIC of Professional Development';
+    event?.picTitle?.trim() ||
+    settings.picPdTitle.trim() ||
+    'PIC of Professional Development';
   const principalNameText =
-    settings.principalName.trim() ||
     event?.principalName?.trim() ||
+    settings.principalName.trim() ||
     '';
   const principalTitleText = settings.principalTitle.trim() || 'Principal';
+  const cityLabel =
+    event?.city?.trim() || settings.cityName?.trim() || 'Jakarta';
 
   // 13. Verified Check-In Date & Time Block (optional; hidden in native layout)
   if (el.dateFooter.visible) {
@@ -1198,7 +1213,7 @@ function drawCertificatePage(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.2);
     doc.setTextColor(...theme.bodyRgb);
-    doc.text(`Jakarta, ${big5IssueDate}`, cx, sigTopSpaceY, {
+    doc.text(`${cityLabel}, ${big5IssueDate}`, cx, sigTopSpaceY, {
       align: 'center',
     });
 
@@ -1309,6 +1324,7 @@ export interface RecognitionPdfRenderOptions {
   picPdTitle?: string;
   principalName?: string;
   principalTitle?: string;
+  cityName?: string;
   showTopic?: boolean;
   showFacilitator?: boolean;
   showCertificateId?: boolean;
@@ -1610,7 +1626,9 @@ function drawRecognitionCertificatePage(
   const picRoleLines = doc.splitTextToSize(picPdTitleText, 74).slice(0, 2);
   doc.text(picRoleLines, leftX, footerLineY + 4.5, { align: 'center' });
 
-  // Bottom Right: City (Jakarta) & Issued Date above Principal Signature Space + Principal Name & Title
+  // Bottom Right: City & Issued Date above Principal Signature Space + Principal Name & Title
+  const cityLabel =
+    cert.cityName?.trim() || options.cityName?.trim() || 'Jakarta';
   doc.setDrawColor(148, 163, 184);
   doc.setLineWidth(0.4);
   doc.line(rightX - 36, footerLineY, rightX + 36, footerLineY);
@@ -1624,7 +1642,7 @@ function drawRecognitionCertificatePage(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Jakarta, ${formattedIssueDate}`, rightX, priCityDateY, {
+  doc.text(`${cityLabel}, ${formattedIssueDate}`, rightX, priCityDateY, {
     align: 'center',
   });
 
@@ -1655,13 +1673,25 @@ function resolveSyncedCertificateRecord(
   const resolvedCategoryName = liveCategory?.name?.trim() || cert.categoryName;
   const resolvedEventTitle = liveEvent?.title?.trim() || cert.eventTitle;
   const resolvedEventDate = liveEvent?.eventDate?.trim() || cert.eventDate;
-  const resolvedEventVenue = liveEvent?.venue?.trim() || cert.eventVenue;
+  const resolvedEventVenue =
+    formatEventLocation(
+      liveEvent?.venue?.trim() || cert.eventVenue,
+      liveEvent?.city?.trim() || cert.cityName
+    ) ||
+    liveEvent?.venue?.trim() ||
+    cert.eventVenue;
   const resolvedEventTopic =
     liveEvent?.topic?.trim() || liveEvent?.category?.trim() || cert.eventTopic;
   const resolvedEventTheme = liveEvent?.theme?.trim() || cert.eventTheme;
-  const resolvedFacilitators = liveEvent?.facilitators?.trim() || cert.facilitators;
+  const resolvedFacilitators =
+    liveEvent?.facilitators?.trim() || cert.facilitators;
   const resolvedOrganizer =
     branding?.organizationName?.trim() || cert.organizerName || 'PRESENZA';
+  const resolvedCityName =
+    liveEvent?.city?.trim() ||
+    cert.cityName?.trim() ||
+    template?.cityName?.trim() ||
+    'Jakarta';
 
   if (!template) {
     return {
@@ -1674,21 +1704,32 @@ function resolveSyncedCertificateRecord(
       eventTheme: resolvedEventTheme,
       facilitators: resolvedFacilitators,
       organizerName: resolvedOrganizer,
+      cityName: resolvedCityName,
+      picPdName: liveEvent?.picName?.trim() || cert.picPdName || '',
+      picPdTitle:
+        liveEvent?.picTitle?.trim() ||
+        cert.picPdTitle ||
+        'PIC of Professional Development',
+      principalName:
+        liveEvent?.principalName?.trim() || cert.principalName || '',
     };
   }
 
   const resolvedPicPdName =
-    typeof template.picPdName === 'string'
+    liveEvent?.picName?.trim() ||
+    (typeof template.picPdName === 'string' && template.picPdName.trim()
       ? template.picPdName.trim()
-      : cert.picPdName || '';
+      : cert.picPdName || '');
   const resolvedPicPdTitle =
-    typeof template.picPdTitle === 'string' && template.picPdTitle.trim()
+    liveEvent?.picTitle?.trim() ||
+    (typeof template.picPdTitle === 'string' && template.picPdTitle.trim()
       ? template.picPdTitle.trim()
-      : cert.picPdTitle || 'PIC of Professional Development';
+      : cert.picPdTitle || 'PIC of Professional Development');
   const resolvedPrincipalName =
-    typeof template.principalName === 'string'
+    liveEvent?.principalName?.trim() ||
+    (typeof template.principalName === 'string' && template.principalName.trim()
       ? template.principalName.trim()
-      : cert.principalName || '';
+      : cert.principalName || '');
   const resolvedPrincipalTitle =
     typeof template.principalTitle === 'string' && template.principalTitle.trim()
       ? template.principalTitle.trim()
@@ -1741,6 +1782,7 @@ function resolveSyncedCertificateRecord(
     picPdTitle: resolvedPicPdTitle,
     principalName: resolvedPrincipalName,
     principalTitle: resolvedPrincipalTitle,
+    cityName: resolvedCityName,
   };
 }
 
@@ -1780,6 +1822,7 @@ function buildRecognitionPdfDoc(
     picPdTitle: template?.picPdTitle || 'PIC of Professional Development',
     principalName: template?.principalName || '',
     principalTitle: template?.principalTitle || 'Principal',
+    cityName: template?.cityName || 'Jakarta',
     showTopic: template?.showTopic ?? true,
     showFacilitator: template?.showFacilitator ?? true,
     showCertificateId: template?.showCertificateId ?? true,
@@ -1980,7 +2023,7 @@ export function downloadFeedbackReportPdf(
     if (effectiveEvent) {
       infoLines.push(
         `Session: ${effectiveEvent.category || 'Workshop'}  ·  Venue: ${
-          effectiveEvent.venue || '—'
+          formatEventLocation(effectiveEvent.venue, effectiveEvent.city) || '—'
         }  ·  Date: ${effectiveEvent.eventDate || '—'}`
       );
       if (effectiveEvent.facilitators || effectiveEvent.topic) {
@@ -2669,6 +2712,12 @@ function drawParticipationCertificatePage(
   cursorY += isPortrait ? 10 : 7.5;
 
   // Wording Paragraph(s)
+  const resolvedVenueLabel =
+    formatEventLocation(cert.eventVenue, cert.cityName) || cert.eventVenue;
+  const resolvedPicNameForWording =
+    cert.picPdName?.trim() ||
+    template.picPdName.trim() ||
+    cert.facilitators;
   const maxBodyW = pageW - (isPortrait ? 44 : 70);
   const wordingEn = interpolateRecognitionWording(
     template.wordingEn || DEFAULT_PARTICIPATION_TEMPLATE.wordingEn,
@@ -2677,9 +2726,9 @@ function drawParticipationCertificatePage(
       category: 'Participant',
       event: cert.eventTitle,
       date: formattedEventDateEn,
-      venue: cert.eventVenue,
+      venue: resolvedVenueLabel,
       topic: cert.eventTopic,
-      facilitator: template.picPdName.trim() || cert.facilitators,
+      facilitator: resolvedPicNameForWording,
       organizer: orgDisplay,
       department: cert.participantDepartment,
     }
@@ -2691,9 +2740,9 @@ function drawParticipationCertificatePage(
       category: 'Peserta',
       event: cert.eventTitle,
       date: formattedEventDateId,
-      venue: cert.eventVenue,
+      venue: resolvedVenueLabel,
       topic: cert.eventTopic,
-      facilitator: template.picPdName.trim() || cert.facilitators,
+      facilitator: resolvedPicNameForWording,
       organizer: orgDisplay,
       department: cert.participantDepartment,
     }
@@ -2758,16 +2807,21 @@ function drawParticipationCertificatePage(
   const leftX = centerX - sideOffset;
   const rightX = centerX + sideOffset;
 
-  const picPdNameText = template.picPdName?.trim() || '';
+  const picPdNameText =
+    cert.picPdName?.trim() || template.picPdName?.trim() || '';
   const picPdTitleText =
-    template.picPdTitle?.trim() || 'PIC of Professional Development';
+    cert.picPdTitle?.trim() ||
+    template.picPdTitle?.trim() ||
+    'PIC of Professional Development';
   const picPdSig = template.picPdSignatureDataUrl || '';
 
-  const principalNameText = template.principalName?.trim() || '';
+  const principalNameText =
+    cert.principalName?.trim() || template.principalName?.trim() || '';
   const principalTitleText = template.principalTitle?.trim() || 'Principal';
   const principalSig = template.principalSignatureDataUrl || '';
 
-  const cityLabel = template.cityName?.trim() || 'Jakarta';
+  const cityLabel =
+    cert.cityName?.trim() || template.cityName?.trim() || 'Jakarta';
   const cityDateText =
     lang === 'bahasa'
       ? `${cityLabel}, ${formattedIssueId}`
