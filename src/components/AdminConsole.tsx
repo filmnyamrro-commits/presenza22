@@ -81,6 +81,7 @@ import {
   type LiveBoardSettings,
   OperationType,
   type OrganizationBranding,
+  type ParticipationTemplateConfig,
   type RecognitionCategory,
   type RecognitionTemplateConfig,
   type VoiceAnnouncementSettings,
@@ -106,12 +107,14 @@ import {
 } from '../utils/dateTime';
 import {
   buildFeedbackConfigWritePayload,
+  DEFAULT_PARTICIPATION_TEMPLATE,
   DEFAULT_RECOGNITION_TEMPLATE,
   evaluateFeedbackSchedule,
   formatScheduleDateTime,
   isoToLocalDateAndTime,
   localDateAndTimeToIso,
   mergeFeedbackConfig,
+  mergeParticipationTemplate,
   mergeRecognitionTemplate,
   parseIsoTimestampMs,
 } from '../utils/feedbackAndRecognitionDefaults';
@@ -295,7 +298,10 @@ export default function AdminConsole({
     const d = new Date(Date.now() + 15 * 60 * 1000);
     return formatTime24h(d);
   });
-  const [evDepartmentLabel, setEvDepartmentLabel] = useState('Class / Department');
+  const [evDepartmentLabel, setEvDepartmentLabel] = useState(
+    'Class / Department / School / City'
+  );
+  const [evDepartmentPresets, setEvDepartmentPresets] = useState('');
   const [evConsentText, setEvConsentText] = useState(
     'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
   );
@@ -340,6 +346,8 @@ export default function AdminConsole({
   >([]);
   const [recognitionTemplate, setRecognitionTemplate] =
     useState<RecognitionTemplateConfig>(DEFAULT_RECOGNITION_TEMPLATE);
+  const [participationTemplate, setParticipationTemplate] =
+    useState<ParticipationTemplateConfig>(DEFAULT_PARTICIPATION_TEMPLATE);
   const [issuedCertificates, setIssuedCertificates] = useState<
     IssuedCertificateRecord[]
   >([]);
@@ -758,6 +766,28 @@ export default function AdminConsole({
       }
     );
 
+    const unsubParticipationTemplate = onSnapshot(
+      doc(db, 'participationTemplates', 'default'),
+      (snap) => {
+        if (snap.exists()) {
+          setParticipationTemplate(
+            mergeParticipationTemplate(
+              snap.data() as Partial<ParticipationTemplateConfig>
+            )
+          );
+        } else {
+          setParticipationTemplate(DEFAULT_PARTICIPATION_TEMPLATE);
+        }
+      },
+      (error) => {
+        handleFirestoreError(
+          error,
+          OperationType.GET,
+          'participationTemplates/default'
+        );
+      }
+    );
+
     const unsubCertificates = onSnapshot(
       collection(db, 'certificates'),
       (snap) => {
@@ -827,6 +857,7 @@ export default function AdminConsole({
       unsubFeedbackSubmissions();
       unsubRecCategories();
       unsubRecTemplate();
+      unsubParticipationTemplate();
       unsubCertificates();
       unsubVoiceSettings();
       unsubLiveBoardSettings();
@@ -1263,7 +1294,8 @@ export default function AdminConsole({
     setEvDate(defaultDate);
     setEvStartTime(defaultStart);
     setEvCutoffTime(formatTime24h(cutoff));
-    setEvDepartmentLabel('Class / Department');
+    setEvDepartmentLabel('Class / Department / School / City');
+    setEvDepartmentPresets('');
     setEvConsentText(
       'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
     );
@@ -1301,7 +1333,10 @@ export default function AdminConsole({
     setEvDate(ev.eventDate);
     setEvStartTime(ev.startTime);
     setEvCutoffTime(ev.lateCutoffTime);
-    setEvDepartmentLabel(ev.departmentLabel || 'Class / Department');
+    setEvDepartmentLabel(
+      ev.departmentLabel || 'Class / Department / School / City'
+    );
+    setEvDepartmentPresets(ev.departmentPresets || '');
     setEvConsentText(
       ev.consentText ||
         'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
@@ -1393,7 +1428,8 @@ export default function AdminConsole({
         startTime,
         lateCutoffTime,
         cutoffTimestamp: cutoffTs,
-        departmentLabel: 'Class / Department',
+        departmentLabel: 'Class / Department / School / City',
+        departmentPresets: '',
         consentText:
           'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.',
         facilitators: '',
@@ -1513,7 +1549,10 @@ export default function AdminConsole({
     }
 
     setSavingEvent(true);
-    const deptLabel = (evDepartmentLabel.trim() || 'Class / Department').slice(0, 80);
+    const deptLabel = (
+      evDepartmentLabel.trim() || 'Class / Department / School / City'
+    ).slice(0, 80);
+    const deptPresets = evDepartmentPresets.trim().slice(0, 300);
     const consentStatement = (
       evConsentText.trim() ||
       'I consent to the use of my submitted photo for PRESENZA verification and official professional development attendance records.'
@@ -1538,7 +1577,7 @@ export default function AdminConsole({
           lateCutoffTime: cleanCutoffTime,
           cutoffTimestamp: cutoffTs,
           departmentLabel: deptLabel,
-          departmentPresets: editingEvent.departmentPresets || '',
+          departmentPresets: deptPresets,
           consentText: consentStatement,
           facilitators,
           principalName,
@@ -1579,6 +1618,7 @@ export default function AdminConsole({
           lateCutoffTime: cleanCutoffTime,
           cutoffTimestamp: cutoffTs,
           departmentLabel: deptLabel,
+          departmentPresets: deptPresets,
           consentText: consentStatement,
           facilitators,
           principalName,
@@ -2316,6 +2356,7 @@ export default function AdminConsole({
           branding={branding}
           categories={recognitionCategories}
           templateConfig={recognitionTemplate}
+          participationTemplate={participationTemplate}
           certificates={issuedCertificates}
           certificateSettings={certificateSettings}
           onSyncCertificateSettings={handleSyncCertificateSettings}
@@ -3456,7 +3497,12 @@ export default function AdminConsole({
                   <th className="py-2.5 px-3">#</th>
                   <th className="py-2.5 px-3">Photo</th>
                   <th className="py-2.5 px-3">Participant</th>
-                  <th className="py-2.5 px-3">Class / Department</th>
+                  <th className="py-2.5 px-3">
+                    {selectedEventFilter !== 'all'
+                      ? eventsById.get(selectedEventFilter)?.departmentLabel?.trim() ||
+                        'Class / Dept / School / City'
+                      : 'Class / Dept / School / City'}
+                  </th>
                   <th className="py-2.5 px-3">Event</th>
                   <th className="py-2.5 px-3">Date & Time</th>
                   <th className="py-2.5 px-3">Server Timestamp</th>
@@ -3980,22 +4026,68 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="ev-dept-label"
-                    className="block text-xs font-semibold text-slate-700 mb-1"
-                  >
-                    Class / Department Field Label
-                  </label>
-                  <input
-                    id="ev-dept-label"
-                    type="text"
-                    maxLength={80}
-                    value={evDepartmentLabel}
-                    onChange={(e) => setEvDepartmentLabel(e.target.value)}
-                    placeholder="e.g. Class / Department or Grade / Subject"
-                    className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
+                <div className="space-y-2.5">
+                  <div>
+                    <label
+                      htmlFor="ev-dept-label"
+                      className="block text-xs font-semibold text-slate-700 mb-1"
+                    >
+                      Class / Department / School / City Field Label (Customizable)
+                    </label>
+                    <input
+                      id="ev-dept-label"
+                      type="text"
+                      maxLength={80}
+                      value={evDepartmentLabel}
+                      onChange={(e) => setEvDepartmentLabel(e.target.value)}
+                      placeholder="e.g. Class / Department / School / City"
+                      className="w-full min-h-[40px] px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {[
+                        'Class / Department / School / City',
+                        'School / City',
+                        'Class / Department',
+                        'Department / School / City',
+                      ].map((presetLabel) => {
+                        const active =
+                          evDepartmentLabel.trim().toLowerCase() ===
+                          presetLabel.toLowerCase();
+                        return (
+                          <button
+                            key={presetLabel}
+                            type="button"
+                            onClick={() => setEvDepartmentLabel(presetLabel)}
+                            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                              active
+                                ? 'border-blue-600 bg-blue-50 text-blue-800'
+                                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {presetLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="ev-dept-presets"
+                      className="block text-xs font-semibold text-slate-700 mb-1"
+                    >
+                      Quick-Select Options (Optional, comma-separated)
+                    </label>
+                    <input
+                      id="ev-dept-presets"
+                      type="text"
+                      maxLength={300}
+                      value={evDepartmentPresets}
+                      onChange={(e) => setEvDepartmentPresets(e.target.value)}
+                      placeholder="e.g. SGM Jakarta, SGM Cibubur, Grade 4, Science Dept"
+                      className="w-full min-h-[38px] px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
                 </div>
 
                 <div>

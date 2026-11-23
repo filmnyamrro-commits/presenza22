@@ -694,6 +694,75 @@
         "updatedAt"
       ]
     },
+    "ParticipationTemplate": {
+      "title": "ParticipationTemplate",
+      "description": "Editable English, Bahasa Indonesia, or Bilingual certificate of participation template automatically provided to all event participants.",
+      "type": "object",
+      "properties": {
+        "languageFormat": {
+          "type": "string",
+          "enum": ["bilingual", "english", "bahasa"]
+        },
+        "orientation": { "type": "string", "enum": ["landscape", "portrait"] },
+        "fontFamily": { "type": "string", "enum": ["times", "helvetica", "courier"] },
+        "primaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "paperColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "titleEn": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "titleId": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "subtitleEn": { "type": "string", "maxLength": 140 },
+        "subtitleId": { "type": "string", "maxLength": 140 },
+        "wordingEn": { "type": "string", "minLength": 5, "maxLength": 600 },
+        "wordingId": { "type": "string", "minLength": 5, "maxLength": 600 },
+        "cityName": { "type": "string", "maxLength": 80 },
+        "customLogoDataUrl": { "type": "string", "maxLength": 320000 },
+        "backgroundDataUrl": { "type": "string", "maxLength": 340000 },
+        "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "picPdName": { "type": "string", "maxLength": 120 },
+        "picPdTitle": { "type": "string", "maxLength": 120 },
+        "picPdSignatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "principalName": { "type": "string", "maxLength": 120 },
+        "principalTitle": { "type": "string", "maxLength": 120 },
+        "principalSignatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "showTopic": { "type": "boolean" },
+        "showCertificateId": { "type": "boolean" },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "languageFormat",
+        "orientation",
+        "fontFamily",
+        "primaryColor",
+        "accentColor",
+        "paperColor",
+        "titleEn",
+        "titleId",
+        "subtitleEn",
+        "subtitleId",
+        "wordingEn",
+        "wordingId",
+        "cityName",
+        "customLogoDataUrl",
+        "backgroundDataUrl",
+        "backgroundOpacity",
+        "picPdName",
+        "picPdTitle",
+        "picPdSignatureDataUrl",
+        "principalName",
+        "principalTitle",
+        "principalSignatureDataUrl",
+        "showTopic",
+        "showCertificateId",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
     "IssuedCertificate": {
       "title": "IssuedCertificate",
       "description": "Generated recognition certificate persisted for history, printing, PDF re-download, and duplicate prevention.",
@@ -991,6 +1060,10 @@
     "/recognitionTemplates/{templateId}": {
       "schema": { "$ref": "#/entities/RecognitionTemplate" },
       "description": "Recognition certificate designer template settings (orientation, fonts, colors, wording, logo, signature)."
+    },
+    "/participationTemplates/{templateId}": {
+      "schema": { "$ref": "#/entities/ParticipationTemplate" },
+      "description": "English, Bahasa Indonesia, and Bilingual certificate of participation template settings for automatic participant downloads and admin batch PDF exports."
     },
     "/certificates/{certificateId}": {
       "schema": { "$ref": "#/entities/IssuedCertificate" },

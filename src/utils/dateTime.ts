@@ -102,3 +102,36 @@ export function formatCertificateIssueDate(ymdOrIso?: string): string {
     year: 'numeric',
   });
 }
+
+const INDONESIAN_MONTHS = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+export function formatCertificateIssueDateIndonesian(
+  ymdOrIso?: string
+): string {
+  const trimmed = (ymdOrIso || '').trim();
+  let dateObj: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split('-').map(Number);
+    dateObj = new Date(y, (m || 1) - 1, d || 1);
+  } else {
+    const parsed = trimmed ? new Date(trimmed) : new Date();
+    dateObj = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  const day = dateObj.getDate();
+  const monthName = INDONESIAN_MONTHS[dateObj.getMonth()] || 'Januari';
+  const year = dateObj.getFullYear();
+  return `${day} ${monthName} ${year}`;
+}

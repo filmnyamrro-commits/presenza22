@@ -1,10 +1,13 @@
 import {
   AlertCircle,
+  Award,
   Calendar,
   CalendarClock,
   CheckCircle2,
   CheckSquare,
   Clock,
+  Download,
+  Eye,
   FileText,
   Film,
   Image as ImageIcon,
@@ -20,6 +23,7 @@ import {
   Upload,
   UserCheck,
   Users,
+  X,
 } from 'lucide-react';
 import { type User } from 'firebase/auth';
 import {
@@ -46,6 +50,9 @@ import {
   type FeedbackRatingEntry,
   type FeedbackStatementSelection,
   OperationType,
+  type OrganizationBranding,
+  type ParticipationCertificateRecord,
+  type ParticipationTemplateConfig,
 } from '../types';
 import { formatLocalDateYmd, generateSafeId } from '../utils/dateTime';
 import {
@@ -55,13 +62,18 @@ import {
   type PreparedFeedbackAttachment,
 } from '../utils/feedbackAttachment';
 import {
+  buildParticipationCertificateNumber,
+  DEFAULT_PARTICIPATION_TEMPLATE,
   evaluateFeedbackSchedule,
   formatScheduleCountdown,
   formatScheduleDateTime,
   mergeFeedbackConfig,
+  mergeParticipationTemplate,
 } from '../utils/feedbackAndRecognitionDefaults';
+import { downloadParticipationCertificatesPdf } from '../utils/pdfExport';
 import { isValidEventIdParam } from '../utils/qrUrl';
 import DiagnosticErrorPanel from './DiagnosticErrorPanel';
+import ParticipationCertificateCanvas from './ParticipationCertificateCanvas';
 
 interface ParticipantFeedbackProps {
   requestedEventId: string | null;
@@ -87,6 +99,9 @@ interface StoredCheckInHint {
   fullName?: string;
   classDepartment?: string;
   participantEmail?: string;
+  attendanceDate?: string;
+  checkInTime?: string;
+  status?: 'On Time' | 'Late';
 }
 
 interface StoredFeedbackReceipt {
@@ -181,6 +196,49 @@ export default function ParticipantFeedback({
   const [formError, setFormError] = useState<string | null>(null);
   const [submittedReceipt, setSubmittedReceipt] =
     useState<StoredFeedbackReceipt | null>(null);
+
+  const [participationTemplate, setParticipationTemplate] =
+    useState<ParticipationTemplateConfig>(DEFAULT_PARTICIPATION_TEMPLATE);
+  const [branding, setBranding] = useState<OrganizationBranding | null>(null);
+  const [showCertPreviewModal, setShowCertPreviewModal] = useState(false);
+
+  // Load Participation Template & Branding for automatic participant certificate delivery
+  useEffect(() => {
+    const unsubTemplate = onSnapshot(
+      doc(db, 'participationTemplates', 'default'),
+      (snap) => {
+        if (snap.exists()) {
+          setParticipationTemplate(
+            mergeParticipationTemplate(
+              snap.data() as Partial<ParticipationTemplateConfig>
+            )
+          );
+        } else {
+          setParticipationTemplate(DEFAULT_PARTICIPATION_TEMPLATE);
+        }
+      },
+      () => {
+        setParticipationTemplate(DEFAULT_PARTICIPATION_TEMPLATE);
+      }
+    );
+    const unsubBrand = onSnapshot(
+      doc(db, 'branding', 'default'),
+      (snap) => {
+        if (snap.exists()) {
+          setBranding(snap.data() as OrganizationBranding);
+        } else {
+          setBranding(null);
+        }
+      },
+      () => {
+        setBranding(null);
+      }
+    );
+    return () => {
+      unsubTemplate();
+      unsubBrand();
+    };
+  }, []);
 
   // Subscribe to open active events
   useEffect(() => {
@@ -746,6 +804,43 @@ export default function ParticipantFeedback({
 
   // Thank-You / Duplicate Prevention Screen
   if (selectedEvent && submittedReceipt) {
+    const checkInHint = readCheckInHint(selectedEvent.id);
+    const certAttendanceId =
+      checkInHint?.attendanceId || linkedAttendanceId || '';
+    const certParticipantName =
+      checkInHint?.fullName?.trim() || participantName.trim();
+    const autoCert: ParticipationCertificateRecord | null =
+      certAttendanceId && certParticipantName
+        ? {
+            certificateNumber: buildParticipationCertificateNumber(
+              selectedEvent.id,
+              certAttendanceId,
+              selectedEvent.eventDate
+            ),
+            attendanceId: certAttendanceId,
+            eventId: selectedEvent.id,
+            eventTitle: selectedEvent.title,
+            eventDate:
+              selectedEvent.eventDate || formatLocalDateYmd(new Date()),
+            eventVenue: selectedEvent.venue || '',
+            eventTopic:
+              selectedEvent.topic?.trim() || selectedEvent.category || '',
+            facilitators: selectedEvent.facilitators?.trim() || '',
+            organizerName: branding?.organizationName?.trim() || 'PRESENZA',
+            participantName: certParticipantName,
+            participantDepartment:
+              checkInHint?.classDepartment?.trim() ||
+              participantDepartment.trim(),
+            participantEmail: checkInHint?.participantEmail || '',
+            checkInTime: checkInHint?.checkInTime || '',
+            attendanceStatus: checkInHint?.status || 'On Time',
+            issueDate:
+              checkInHint?.attendanceDate ||
+              selectedEvent.eventDate ||
+              formatLocalDateYmd(new Date()),
+          }
+        : null;
+
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -799,6 +894,48 @@ export default function ParticipantFeedback({
                 <span>Attached: {submittedReceipt.attachmentName}</span>
               </div>
             )}
+
+            {autoCert && (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900">
+                      Certificate of Participation Ready
+                    </div>
+                    <div className="text-[11px] font-mono-tabular text-amber-900 mt-0.5 truncate">
+                      {autoCert.certificateNumber} · {autoCert.participantName}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowCertPreviewModal(true)}
+                    className="min-h-[36px] px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-800 inline-flex items-center gap-1"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-blue-700" />
+                    <span>Preview</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadParticipationCertificatesPdf(
+                        [autoCert],
+                        participationTemplate,
+                        branding
+                      )
+                    }
+                    className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -816,6 +953,67 @@ export default function ParticipantFeedback({
             )}
           </div>
         </div>
+
+        {showCertPreviewModal && autoCert && (
+          <div
+            className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Certificate of Participation Preview"
+          >
+            <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl my-auto">
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-slate-900 truncate">
+                    Certificate of Participation · {autoCert.participantName}
+                  </div>
+                  <div className="text-xs font-mono-tabular text-slate-500">
+                    {autoCert.certificateNumber}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCertPreviewModal(false)}
+                  aria-label="Close certificate preview"
+                  className="min-h-[36px] min-w-[36px] rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 sm:p-6 bg-slate-100">
+                <ParticipationCertificateCanvas
+                  template={participationTemplate}
+                  branding={branding}
+                  participantName={autoCert.participantName}
+                  participantDepartment={autoCert.participantDepartment}
+                  eventTitle={autoCert.eventTitle}
+                  eventDate={autoCert.eventDate}
+                  eventVenue={autoCert.eventVenue}
+                  eventTopic={autoCert.eventTopic}
+                  facilitators={autoCert.facilitators}
+                  certificateNumber={autoCert.certificateNumber}
+                  issueDate={autoCert.issueDate}
+                />
+              </div>
+              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadParticipationCertificatesPdf(
+                      [autoCert],
+                      participationTemplate,
+                      branding
+                    )
+                  }
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Certificate (PDF)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1632,8 +1830,14 @@ export default function ParticipantFeedback({
                   maxLength={100}
                   value={participantDepartment}
                   onChange={(e) => setParticipantDepartment(e.target.value)}
-                  placeholder="Class / Department (optional)"
-                  aria-label="Class or department (optional)"
+                  placeholder={`${
+                    selectedEvent.departmentLabel?.trim() ||
+                    'Class / Department / School / City'
+                  } (optional)`}
+                  aria-label={`${
+                    selectedEvent.departmentLabel?.trim() ||
+                    'Class / Department / School / City'
+                  } (optional)`}
                   className="min-h-[42px] px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>

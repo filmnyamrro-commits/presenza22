@@ -340,6 +340,53 @@ export interface IssuedCertificateRecord {
   createdAt: Timestamp;
 }
 
+export type ParticipationLanguageFormat = 'bilingual' | 'english' | 'bahasa';
+
+export interface ParticipationTemplateConfig {
+  languageFormat: ParticipationLanguageFormat;
+  orientation: RecognitionOrientation;
+  fontFamily: RecognitionFontFamily;
+  primaryColor: string;
+  accentColor: string;
+  paperColor: string;
+  titleEn: string;
+  titleId: string;
+  subtitleEn: string;
+  subtitleId: string;
+  wordingEn: string;
+  wordingId: string;
+  cityName: string;
+  customLogoDataUrl: string;
+  backgroundDataUrl: string;
+  backgroundOpacity: number;
+  picPdName: string;
+  picPdTitle: string;
+  picPdSignatureDataUrl: string;
+  principalName: string;
+  principalTitle: string;
+  principalSignatureDataUrl: string;
+  showTopic: boolean;
+  showCertificateId: boolean;
+}
+
+export interface ParticipationCertificateRecord {
+  certificateNumber: string;
+  attendanceId: string;
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  eventVenue: string;
+  eventTopic: string;
+  facilitators: string;
+  organizerName: string;
+  participantName: string;
+  participantDepartment: string;
+  participantEmail: string;
+  checkInTime: string;
+  attendanceStatus: AttendanceStatus;
+  issueDate: string;
+}
+
 // Module 3: AI Voice Check-in Announcement
 export type VoiceLanguage = 'en-US' | 'id-ID';
 export type VoiceEngineMode = 'auto' | 'ai' | 'browser';

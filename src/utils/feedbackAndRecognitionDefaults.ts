@@ -4,6 +4,8 @@ import type {
   FeedbackRatingCriterion,
   FeedbackStatement,
   FeedbackStatementCategory,
+  ParticipationLanguageFormat,
+  ParticipationTemplateConfig,
   RecognitionTemplateConfig,
   TermBestCategoryNames,
 } from '../types';
@@ -954,4 +956,234 @@ export function interpolateRecognitionWording(
       return lower in map ? map[lower] : _match;
     })
     .trim();
+}
+
+export interface ParticipationWordingPreset {
+  id: string;
+  label: string;
+  description: string;
+  wordingEn: string;
+  wordingId: string;
+}
+
+export const PARTICIPATION_WORDING_PRESETS: ReadonlyArray<ParticipationWordingPreset> =
+  [
+    {
+      id: 'standard',
+      label: '1. Standard Participation (Default)',
+      description: 'Balanced EN & Bahasa phrasing with event, date, and venue',
+      wordingEn:
+        'This certificate is proudly presented to {{participant}} in appreciation of active participation in "{{event}}" held on {{date}} at {{venue}}.',
+      wordingId:
+        'Sertifikat ini dengan bangga diberikan kepada {{participant}} sebagai apresiasi atas partisipasi aktif dalam kegiatan "{{event}}" yang diselenggarakan pada {{date}} di {{venue}}.',
+    },
+    {
+      id: 'professional-dev',
+      label: '2. Professional Development',
+      description: 'Formal institutional credit for workshops & teacher PD',
+      wordingEn:
+        'Awarded to {{participant}} for completing the professional development session "{{event}}" organized by {{organizer}} on {{date}} at {{venue}}.',
+      wordingId:
+        'Diberikan kepada {{participant}} atas keikutsertaan dan penyelesaian sesi pengembangan profesional "{{event}}" yang diselenggarakan oleh {{organizer}} pada {{date}} di {{venue}}.',
+    },
+    {
+      id: 'topic-focus',
+      label: '3. Workshop & Topic Focus',
+      description: 'Highlights the session topic in English & Bahasa',
+      wordingEn:
+        'This certifies that {{participant}} actively participated in "{{event}}" focusing on {{topic}}, conducted on {{date}} at {{venue}}.',
+      wordingId:
+        'Menyatakan bahwa {{participant}} telah berpartisipasi aktif dalam kegiatan "{{event}}" dengan topik {{topic}}, yang dilaksanakan pada {{date}} di {{venue}}.',
+    },
+    {
+      id: 'appreciation',
+      label: '4. Appreciation & Engagement',
+      description: 'Highlights commitment and positive engagement',
+      wordingEn:
+        'With sincere appreciation for commitment and enthusiastic engagement, {{organizer}} presents this certificate to {{participant}} for attending "{{event}}" on {{date}}.',
+      wordingId:
+        'Dengan apresiasi setinggi-tingginya atas komitmen dan keaktifan, {{organizer}} memberikan sertifikat ini kepada {{participant}} atas kehadiran dalam "{{event}}" pada {{date}}.',
+    },
+    {
+      id: 'facilitator-endorsed',
+      label: '5. Facilitator Endorsed',
+      description: 'Includes organizer, topic, and facilitator credit',
+      wordingEn:
+        'Presented by {{organizer}} to {{participant}} for participating in "{{event}}" ({{topic}}), facilitated by {{facilitator}} on {{date}} at {{venue}}.',
+      wordingId:
+        'Diberikan oleh {{organizer}} kepada {{participant}} sebagai peserta kegiatan "{{event}}" ({{topic}}) yang difasilitasi oleh {{facilitator}} pada {{date}} di {{venue}}.',
+    },
+    {
+      id: 'concise',
+      label: '6. Concise Certificate',
+      description: 'Short, clean statement ideal for compact or bilingual layouts',
+      wordingEn:
+        'Awarded to {{participant}} for participating in "{{event}}" held on {{date}} at {{venue}}.',
+      wordingId:
+        'Diberikan kepada {{participant}} atas partisipasinya dalam kegiatan "{{event}}" pada {{date}} di {{venue}}.',
+    },
+  ];
+
+export const DEFAULT_PARTICIPATION_TEMPLATE: ParticipationTemplateConfig = {
+  languageFormat: 'bilingual',
+  orientation: 'landscape',
+  fontFamily: 'times',
+  primaryColor: '#0F172A',
+  accentColor: '#B45309',
+  paperColor: '#FFFFFF',
+  titleEn: 'CERTIFICATE OF PARTICIPATION',
+  titleId: 'SERTIFIKAT PARTISIPASI',
+  subtitleEn: 'AWARDED IN APPRECIATION OF ACTIVE PARTICIPATION',
+  subtitleId: 'DIBERIKAN SEBAGAI APRESIASI ATAS PARTISIPASI AKTIF',
+  wordingEn: PARTICIPATION_WORDING_PRESETS[0].wordingEn,
+  wordingId: PARTICIPATION_WORDING_PRESETS[0].wordingId,
+  cityName: 'Jakarta',
+  customLogoDataUrl: '',
+  backgroundDataUrl: '',
+  backgroundOpacity: 22,
+  picPdName: '',
+  picPdTitle: 'PIC of Professional Development',
+  picPdSignatureDataUrl: '',
+  principalName: '',
+  principalTitle: 'Principal',
+  principalSignatureDataUrl: '',
+  showTopic: true,
+  showCertificateId: true,
+};
+
+export function normalizeParticipationLanguageFormat(
+  val?: unknown
+): ParticipationLanguageFormat {
+  if (val === 'english' || val === 'bahasa' || val === 'bilingual') {
+    return val;
+  }
+  return 'bilingual';
+}
+
+export function mergeParticipationTemplate(
+  partial?: Partial<ParticipationTemplateConfig> | null
+): ParticipationTemplateConfig {
+  if (!partial) {
+    return { ...DEFAULT_PARTICIPATION_TEMPLATE };
+  }
+  return {
+    languageFormat: normalizeParticipationLanguageFormat(partial.languageFormat),
+    orientation:
+      partial.orientation === 'portrait' ? 'portrait' : 'landscape',
+    fontFamily:
+      partial.fontFamily === 'helvetica' || partial.fontFamily === 'courier'
+        ? partial.fontFamily
+        : 'times',
+    primaryColor:
+      typeof partial.primaryColor === 'string' &&
+      HEX_COLOR_REGEX.test(partial.primaryColor)
+        ? partial.primaryColor
+        : DEFAULT_PARTICIPATION_TEMPLATE.primaryColor,
+    accentColor:
+      typeof partial.accentColor === 'string' &&
+      HEX_COLOR_REGEX.test(partial.accentColor)
+        ? partial.accentColor
+        : DEFAULT_PARTICIPATION_TEMPLATE.accentColor,
+    paperColor:
+      typeof partial.paperColor === 'string' &&
+      HEX_COLOR_REGEX.test(partial.paperColor)
+        ? partial.paperColor
+        : DEFAULT_PARTICIPATION_TEMPLATE.paperColor,
+    titleEn:
+      typeof partial.titleEn === 'string' && partial.titleEn.trim().length >= 2
+        ? partial.titleEn.slice(0, 120)
+        : DEFAULT_PARTICIPATION_TEMPLATE.titleEn,
+    titleId:
+      typeof partial.titleId === 'string' && partial.titleId.trim().length >= 2
+        ? partial.titleId.slice(0, 120)
+        : DEFAULT_PARTICIPATION_TEMPLATE.titleId,
+    subtitleEn:
+      typeof partial.subtitleEn === 'string'
+        ? partial.subtitleEn.slice(0, 140)
+        : DEFAULT_PARTICIPATION_TEMPLATE.subtitleEn,
+    subtitleId:
+      typeof partial.subtitleId === 'string'
+        ? partial.subtitleId.slice(0, 140)
+        : DEFAULT_PARTICIPATION_TEMPLATE.subtitleId,
+    wordingEn:
+      typeof partial.wordingEn === 'string' &&
+      partial.wordingEn.trim().length >= 5
+        ? partial.wordingEn.slice(0, 600)
+        : DEFAULT_PARTICIPATION_TEMPLATE.wordingEn,
+    wordingId:
+      typeof partial.wordingId === 'string' &&
+      partial.wordingId.trim().length >= 5
+        ? partial.wordingId.slice(0, 600)
+        : DEFAULT_PARTICIPATION_TEMPLATE.wordingId,
+    cityName:
+      typeof partial.cityName === 'string' && partial.cityName.trim()
+        ? partial.cityName.slice(0, 80)
+        : DEFAULT_PARTICIPATION_TEMPLATE.cityName,
+    customLogoDataUrl:
+      typeof partial.customLogoDataUrl === 'string'
+        ? partial.customLogoDataUrl
+        : '',
+    backgroundDataUrl:
+      typeof partial.backgroundDataUrl === 'string'
+        ? partial.backgroundDataUrl
+        : '',
+    backgroundOpacity:
+      typeof partial.backgroundOpacity === 'number' &&
+      Number.isFinite(partial.backgroundOpacity)
+        ? Math.min(100, Math.max(0, partial.backgroundOpacity))
+        : DEFAULT_PARTICIPATION_TEMPLATE.backgroundOpacity,
+    picPdName:
+      typeof partial.picPdName === 'string'
+        ? partial.picPdName.slice(0, 120)
+        : '',
+    picPdTitle:
+      typeof partial.picPdTitle === 'string' && partial.picPdTitle.trim()
+        ? partial.picPdTitle.slice(0, 120)
+        : DEFAULT_PARTICIPATION_TEMPLATE.picPdTitle,
+    picPdSignatureDataUrl:
+      typeof partial.picPdSignatureDataUrl === 'string'
+        ? partial.picPdSignatureDataUrl
+        : '',
+    principalName:
+      typeof partial.principalName === 'string'
+        ? partial.principalName.slice(0, 120)
+        : '',
+    principalTitle:
+      typeof partial.principalTitle === 'string' && partial.principalTitle.trim()
+        ? partial.principalTitle.slice(0, 120)
+        : DEFAULT_PARTICIPATION_TEMPLATE.principalTitle,
+    principalSignatureDataUrl:
+      typeof partial.principalSignatureDataUrl === 'string'
+        ? partial.principalSignatureDataUrl
+        : '',
+    showTopic:
+      typeof partial.showTopic === 'boolean'
+        ? partial.showTopic
+        : DEFAULT_PARTICIPATION_TEMPLATE.showTopic,
+    showCertificateId:
+      typeof partial.showCertificateId === 'boolean'
+        ? partial.showCertificateId
+        : DEFAULT_PARTICIPATION_TEMPLATE.showCertificateId,
+  };
+}
+
+export function buildParticipationCertificateNumber(
+  eventId: string,
+  attendanceId: string,
+  eventDate?: string
+): string {
+  const yearMatch = /^(\d{4})-/.exec((eventDate || '').trim());
+  const year = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seed = `${eventId}::${attendanceId}::participation`;
+  let hashA = fnv1aHex(seed);
+  let hashB = fnv1aHex(`${seed}::2`);
+  const combined = `${hashA}${hashB}`;
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    const byteHex = combined.slice(i * 2, i * 2 + 2) || '00';
+    const val = parseInt(byteHex, 16) || 0;
+    suffix += alphabet[val % alphabet.length];
+  }
+  return `PRZ-P-${year}-${suffix}`;
 }

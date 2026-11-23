@@ -10,13 +10,22 @@ import type {
   FeedbackSubmissionRecord,
   IssuedCertificateRecord,
   OrganizationBranding,
+  ParticipationCertificateRecord,
+  ParticipationLanguageFormat,
+  ParticipationTemplateConfig,
   RecognitionCategory,
   RecognitionTemplateConfig,
 } from '../types';
-import { formatCertificateIssueDate, formatLocalDateYmd } from './dateTime';
 import {
+  formatCertificateIssueDate,
+  formatCertificateIssueDateIndonesian,
+  formatLocalDateYmd,
+} from './dateTime';
+import {
+  DEFAULT_PARTICIPATION_TEMPLATE,
   DEFAULT_TERM_BEST_CATEGORIES,
   interpolateRecognitionWording,
+  mergeParticipationTemplate,
   mergeTermBestCategories,
   normalizeBestTermKey,
   resolveBestTermLabel,
@@ -667,7 +676,7 @@ export function downloadRecapitulationPdf(
         '#',
         'Photo',
         'Full Name',
-        'Class / Dept',
+        'Class / Dept / School / City',
         'Event',
         'Check-In',
         'Status',
@@ -2385,5 +2394,539 @@ export function downloadFeedbackReportPdf(
       .toISOString()
       .slice(0, 10)}.pdf`
   );
+}
+
+function drawParticipationCertificatePage(
+  doc: jsPDF,
+  cert: ParticipationCertificateRecord,
+  template: ParticipationTemplateConfig,
+  branding?: OrganizationBranding | null,
+  overrideLanguage?: ParticipationLanguageFormat
+): void {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const isPortrait = template.orientation === 'portrait' || pageH > pageW;
+  const centerX = pageW / 2;
+  const lang: ParticipationLanguageFormat =
+    overrideLanguage || template.languageFormat || 'bilingual';
+
+  const paperRgb = hexToRgbTuple(template.paperColor, [255, 255, 255]);
+  const primaryRgb = hexToRgbTuple(template.primaryColor, [15, 23, 42]);
+  const accentRgb = hexToRgbTuple(template.accentColor, [180, 83, 9]);
+  const font = template.fontFamily || 'times';
+
+  // Paper background
+  doc.setFillColor(...paperRgb);
+  doc.rect(0, 0, pageW, pageH, 'F');
+
+  // Optional background photo watermark
+  const bgOpacity =
+    typeof template.backgroundOpacity === 'number' &&
+    Number.isFinite(template.backgroundOpacity)
+      ? Math.min(100, Math.max(0, template.backgroundOpacity))
+      : 0;
+  if (template.backgroundDataUrl && bgOpacity > 0) {
+    try {
+      const props = doc.getImageProperties(template.backgroundDataUrl);
+      const imgW = props.width || pageW;
+      const imgH = props.height || pageH;
+      const imgRatio = imgW / imgH;
+      const innerX = 10;
+      const innerY = 10;
+      const innerW = pageW - 20;
+      const innerH = pageH - 20;
+      const innerRatio = innerW / innerH;
+
+      let drawW = innerW;
+      let drawH = innerH;
+      let drawX = innerX;
+      let drawY = innerY;
+
+      if (imgRatio > innerRatio) {
+        drawH = innerH;
+        drawW = innerH * imgRatio;
+        drawX = innerX + (innerW - drawW) / 2;
+      } else {
+        drawW = innerW;
+        drawH = innerW / imgRatio;
+        drawY = innerY + (innerH - drawH) / 2;
+      }
+
+      const alpha = Math.min(1, Math.max(0, bgOpacity / 100));
+      doc.saveGraphicsState();
+      doc.setGState(new GState({ opacity: alpha }));
+      doc.addImage(
+        template.backgroundDataUrl,
+        detectImageFormat(template.backgroundDataUrl),
+        drawX,
+        drawY,
+        drawW,
+        drawH
+      );
+      doc.restoreGraphicsState();
+      doc.setGState(new GState({ opacity: 1 }));
+
+      doc.setFillColor(...paperRgb);
+      doc.rect(0, 0, pageW, 10, 'F');
+      doc.rect(0, pageH - 10, pageW, 10, 'F');
+      doc.rect(0, 0, 10, pageH, 'F');
+      doc.rect(pageW - 10, 0, 10, pageH, 'F');
+    } catch {
+      // Ignore malformed background image
+    }
+  }
+
+  // Double border frame + subtle top accent strip
+  doc.setFillColor(...primaryRgb);
+  doc.rect(10, 10, pageW - 20, 3.2, 'F');
+
+  doc.setDrawColor(...primaryRgb);
+  doc.setLineWidth(1.6);
+  doc.rect(10, 10, pageW - 20, pageH - 20, 'S');
+
+  doc.setDrawColor(...accentRgb);
+  doc.setLineWidth(0.55);
+  doc.rect(14, 14, pageW - 28, pageH - 28, 'S');
+
+  doc.setFillColor(...accentRgb);
+  [
+    [10, 10],
+    [pageW - 17, 10],
+    [10, pageH - 17],
+    [pageW - 17, pageH - 17],
+  ].forEach(([cx, cy]) => {
+    doc.rect(cx, cy, 7, 7, 'F');
+  });
+
+  const dateSource = cert.issueDate || cert.eventDate;
+  const formattedIssueEn = formatCertificateIssueDate(dateSource);
+  const formattedIssueId = formatCertificateIssueDateIndonesian(dateSource);
+  const formattedEventDateEn = formatCertificateIssueDate(
+    cert.eventDate || cert.issueDate
+  );
+  const formattedEventDateId = formatCertificateIssueDateIndonesian(
+    cert.eventDate || cert.issueDate
+  );
+
+  // Top-left Certificate Number & Top-right Issued Date
+  if (template.showCertificateId !== false) {
+    const certPrefix =
+      lang === 'bahasa'
+        ? 'No. Sertifikat'
+        : lang === 'bilingual'
+        ? 'No'
+        : 'Certificate No';
+    const issuedPrefix =
+      lang === 'bahasa'
+        ? 'Diterbitkan'
+        : lang === 'bilingual'
+        ? 'Issued / Diterbitkan'
+        : 'Issued';
+    const issuedDateText =
+      lang === 'bahasa' ? formattedIssueId : formattedIssueEn;
+
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`${certPrefix}: ${cert.certificateNumber}`, 19, 20.5, {
+      align: 'left',
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`${issuedPrefix}: ${issuedDateText}`, pageW - 19, 20.5, {
+      align: 'right',
+    });
+  }
+
+  // Logo & Organization Name
+  const logoDataUrl = template.customLogoDataUrl || branding?.logoDataUrl || '';
+  let cursorY = isPortrait ? 31 : 25.5;
+  if (logoDataUrl) {
+    try {
+      const logoSize = isPortrait ? 15 : 13;
+      doc.addImage(
+        logoDataUrl,
+        detectImageFormat(logoDataUrl),
+        centerX - logoSize / 2,
+        cursorY - 5.5,
+        logoSize,
+        logoSize
+      );
+      cursorY += logoSize + 2.5;
+    } catch {
+      // Skip malformed logo
+    }
+  }
+
+  const orgDisplay =
+    cert.organizerName?.trim() ||
+    branding?.organizationName?.trim() ||
+    'PRESENZA';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...accentRgb);
+  doc.text(orgDisplay.toUpperCase(), centerX, cursorY, { align: 'center' });
+  cursorY += isPortrait ? 11 : 8.5;
+
+  // Title (English / Bahasa / Bilingual)
+  const maxTitleW = pageW - 44;
+  if (lang === 'bilingual') {
+    doc.setFont(font, 'bold');
+    doc.setFontSize(isPortrait ? 21 : 22);
+    doc.setTextColor(...primaryRgb);
+    const titleEnLines = doc
+      .splitTextToSize(
+        template.titleEn || 'CERTIFICATE OF PARTICIPATION',
+        maxTitleW
+      )
+      .slice(0, 2);
+    doc.text(titleEnLines, centerX, cursorY, { align: 'center' });
+    cursorY += titleEnLines.length * 7.6 + 0.5;
+
+    doc.setFont(font, 'bolditalic');
+    doc.setFontSize(isPortrait ? 12.5 : 13);
+    doc.setTextColor(...accentRgb);
+    const titleIdLines = doc
+      .splitTextToSize(template.titleId || 'SERTIFIKAT PARTISIPASI', maxTitleW)
+      .slice(0, 1);
+    doc.text(titleIdLines, centerX, cursorY, { align: 'center' });
+    cursorY += 6;
+  } else {
+    const singleTitle =
+      lang === 'bahasa'
+        ? template.titleId || 'SERTIFIKAT PARTISIPASI'
+        : template.titleEn || 'CERTIFICATE OF PARTICIPATION';
+    doc.setFont(font, 'bold');
+    doc.setFontSize(isPortrait ? 24 : 25);
+    doc.setTextColor(...primaryRgb);
+    const titleLines = doc
+      .splitTextToSize(singleTitle, maxTitleW)
+      .slice(0, 2);
+    doc.text(titleLines, centerX, cursorY, { align: 'center' });
+    cursorY += titleLines.length * 9 + 1.5;
+  }
+
+  // Subtitle
+  const subText =
+    lang === 'bahasa'
+      ? template.subtitleId.trim()
+      : lang === 'english'
+      ? template.subtitleEn.trim()
+      : [template.subtitleEn.trim(), template.subtitleId.trim()]
+          .filter(Boolean)
+          .join('  /  ');
+  if (subText) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(lang === 'bilingual' ? 8.2 : 9.2);
+    doc.setTextColor(100, 116, 139);
+    const subLines = doc
+      .splitTextToSize(subText.toUpperCase(), maxTitleW)
+      .slice(0, 2);
+    doc.text(subLines, centerX, cursorY, { align: 'center' });
+    cursorY += subLines.length * 4.2 + 4.5;
+  } else {
+    cursorY += 3;
+  }
+
+  // "Presented to" Intro line
+  const introText =
+    lang === 'bahasa'
+      ? 'Dengan bangga sertifikat ini diberikan kepada'
+      : lang === 'english'
+      ? 'This certificate is proudly presented to'
+      : 'This certificate is proudly presented to  ·  Dengan bangga diberikan kepada';
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.text(introText, centerX, cursorY, { align: 'center' });
+  cursorY += isPortrait ? 12 : 10;
+
+  // Recipient Name
+  doc.setFont(font, 'bold');
+  doc.setFontSize(isPortrait ? 24 : 26);
+  doc.setTextColor(...primaryRgb);
+  const nameLines = doc
+    .splitTextToSize(cert.participantName || 'Participant', maxTitleW)
+    .slice(0, 2);
+  doc.text(nameLines, centerX, cursorY, { align: 'center' });
+  cursorY += nameLines.length * 9.5 + 1;
+
+  // Department & horizontal accent rule
+  if (cert.participantDepartment?.trim()) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(...accentRgb);
+    doc.text(cert.participantDepartment.trim(), centerX, cursorY, {
+      align: 'center',
+    });
+    cursorY += 4.5;
+  }
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.45);
+  doc.line(centerX - 58, cursorY, centerX + 58, cursorY);
+  cursorY += isPortrait ? 10 : 7.5;
+
+  // Wording Paragraph(s)
+  const maxBodyW = pageW - (isPortrait ? 44 : 70);
+  const wordingEn = interpolateRecognitionWording(
+    template.wordingEn || DEFAULT_PARTICIPATION_TEMPLATE.wordingEn,
+    {
+      participant: cert.participantName,
+      category: 'Participant',
+      event: cert.eventTitle,
+      date: formattedEventDateEn,
+      venue: cert.eventVenue,
+      topic: cert.eventTopic,
+      facilitator: template.picPdName.trim() || cert.facilitators,
+      organizer: orgDisplay,
+      department: cert.participantDepartment,
+    }
+  );
+  const wordingId = interpolateRecognitionWording(
+    template.wordingId || DEFAULT_PARTICIPATION_TEMPLATE.wordingId,
+    {
+      participant: cert.participantName,
+      category: 'Peserta',
+      event: cert.eventTitle,
+      date: formattedEventDateId,
+      venue: cert.eventVenue,
+      topic: cert.eventTopic,
+      facilitator: template.picPdName.trim() || cert.facilitators,
+      organizer: orgDisplay,
+      department: cert.participantDepartment,
+    }
+  );
+
+  if (lang === 'bilingual') {
+    doc.setFont(font === 'times' ? 'times' : 'helvetica', 'normal');
+    doc.setFontSize(isPortrait ? 10.5 : 10);
+    doc.setTextColor(30, 41, 59);
+    const enLines = doc.splitTextToSize(wordingEn, maxBodyW).slice(0, 3);
+    doc.text(enLines, centerX, cursorY, {
+      align: 'center',
+      lineHeightFactor: 1.32,
+    });
+    cursorY += enLines.length * 4.8 + 3.2;
+
+    doc.setFont(font === 'times' ? 'times' : 'helvetica', 'italic');
+    doc.setFontSize(isPortrait ? 10 : 9.5);
+    doc.setTextColor(71, 85, 105);
+    const idLines = doc.splitTextToSize(wordingId, maxBodyW).slice(0, 3);
+    doc.text(idLines, centerX, cursorY, {
+      align: 'center',
+      lineHeightFactor: 1.32,
+    });
+    cursorY += idLines.length * 4.6 + 3.5;
+  } else {
+    const activeWording = lang === 'bahasa' ? wordingId : wordingEn;
+    doc.setFont(font === 'times' ? 'times' : 'helvetica', 'normal');
+    doc.setFontSize(isPortrait ? 11.5 : 11);
+    doc.setTextColor(51, 65, 85);
+    const singleLines = doc
+      .splitTextToSize(activeWording, maxBodyW)
+      .slice(0, 5);
+    doc.text(singleLines, centerX, cursorY, {
+      align: 'center',
+      lineHeightFactor: 1.4,
+    });
+    cursorY += singleLines.length * 6.2 + 4;
+  }
+
+  // Topic only (if enabled and non-empty)
+  const topicVal = cert.eventTopic?.trim();
+  if (template.showTopic !== false && topicVal) {
+    const topicLabel =
+      lang === 'bahasa'
+        ? 'Topik'
+        : lang === 'bilingual'
+        ? 'Topic / Topik'
+        : 'Topic';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...primaryRgb);
+    const topicLines = doc
+      .splitTextToSize(`${topicLabel}: ${topicVal}`, maxBodyW)
+      .slice(0, 2);
+    doc.text(topicLines, centerX, cursorY, { align: 'center' });
+  }
+
+  // Footer Signature Row (PIC of PD + City & Principal)
+  const footerLineY = pageH - (isPortrait ? 33 : 25);
+  const sideOffset = isPortrait ? 44 : 62;
+  const leftX = centerX - sideOffset;
+  const rightX = centerX + sideOffset;
+
+  const picPdNameText = template.picPdName?.trim() || '';
+  const picPdTitleText =
+    template.picPdTitle?.trim() || 'PIC of Professional Development';
+  const picPdSig = template.picPdSignatureDataUrl || '';
+
+  const principalNameText = template.principalName?.trim() || '';
+  const principalTitleText = template.principalTitle?.trim() || 'Principal';
+  const principalSig = template.principalSignatureDataUrl || '';
+
+  const cityLabel = template.cityName?.trim() || 'Jakarta';
+  const cityDateText =
+    lang === 'bahasa'
+      ? `${cityLabel}, ${formattedIssueId}`
+      : `${cityLabel}, ${formattedIssueEn}`;
+
+  // Bottom Left: PIC of PD
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.4);
+  doc.line(leftX - 36, footerLineY, leftX + 36, footerLineY);
+  const picNameLines = picPdNameText
+    ? doc.splitTextToSize(picPdNameText, 70).slice(0, 2)
+    : [];
+  const picNameStartY =
+    footerLineY - 3 - Math.max(0, picNameLines.length - 1) * 3.8;
+  const picSigBottomY = picNameLines.length > 0 ? picNameStartY - 3 : footerLineY - 2;
+  if (picPdSig) {
+    drawAspectContainedImage(doc, picPdSig, leftX, picSigBottomY, 44, 12.5);
+  }
+  if (picNameLines.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...primaryRgb);
+    doc.text(picNameLines, leftX, picNameStartY, { align: 'center' });
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(100, 116, 139);
+  doc.text(doc.splitTextToSize(picPdTitleText, 74).slice(0, 2), leftX, footerLineY + 4.5, {
+    align: 'center',
+  });
+
+  // Bottom Right: City + Date above Principal signature
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.4);
+  doc.line(rightX - 36, footerLineY, rightX + 36, footerLineY);
+  const priNameLines = principalNameText
+    ? doc.splitTextToSize(principalNameText, 70).slice(0, 2)
+    : [];
+  const priNameStartY =
+    footerLineY - 3 - Math.max(0, priNameLines.length - 1) * 3.8;
+  const priSigBottomY = priNameLines.length > 0 ? priNameStartY - 3 : footerLineY - 2;
+  const priCityDateY = priSigBottomY - 14.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text(cityDateText, rightX, priCityDateY, { align: 'center' });
+
+  if (principalSig) {
+    drawAspectContainedImage(doc, principalSig, rightX, priSigBottomY, 44, 12.5);
+  }
+  if (priNameLines.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...primaryRgb);
+    doc.text(priNameLines, rightX, priNameStartY, { align: 'center' });
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    doc.splitTextToSize(principalTitleText, 74).slice(0, 2),
+    rightX,
+    footerLineY + 4.5,
+    { align: 'center' }
+  );
+}
+
+function buildParticipationPdfDoc(
+  certs: ParticipationCertificateRecord[],
+  template?: Partial<ParticipationTemplateConfig> | null,
+  branding?: OrganizationBranding | null,
+  overrideLanguage?: ParticipationLanguageFormat
+): jsPDF {
+  const merged = mergeParticipationTemplate(template);
+  const orient = merged.orientation === 'portrait' ? 'portrait' : 'landscape';
+  const doc = new jsPDF({
+    orientation: orient,
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  certs.forEach((cert, idx) => {
+    if (idx > 0) {
+      doc.addPage('a4', orient);
+    }
+    drawParticipationCertificatePage(
+      doc,
+      cert,
+      merged,
+      branding,
+      overrideLanguage
+    );
+  });
+
+  return doc;
+}
+
+export function downloadParticipationCertificatesPdf(
+  certs: ParticipationCertificateRecord[],
+  template?: Partial<ParticipationTemplateConfig> | null,
+  branding?: OrganizationBranding | null,
+  filenamePrefix?: string,
+  overrideLanguage?: ParticipationLanguageFormat
+): void {
+  if (certs.length === 0) return;
+  const doc = buildParticipationPdfDoc(
+    certs,
+    template,
+    branding,
+    overrideLanguage
+  );
+  const slug = filenamePrefix
+    ? slugify(filenamePrefix)
+    : certs.length === 1
+    ? `${slugify(certs[0].participantName)}-${slugify(certs[0].eventTitle)}`
+    : `${slugify(certs[0].eventTitle)}-all-participants`;
+  doc.save(
+    `presenza-participation-${slug}-${new Date().toISOString().slice(0, 10)}.pdf`
+  );
+}
+
+export function printParticipationCertificatesPdf(
+  certs: ParticipationCertificateRecord[],
+  template?: Partial<ParticipationTemplateConfig> | null,
+  branding?: OrganizationBranding | null,
+  overrideLanguage?: ParticipationLanguageFormat
+): void {
+  if (certs.length === 0) return;
+  const doc = buildParticipationPdfDoc(
+    certs,
+    template,
+    branding,
+    overrideLanguage
+  );
+  doc.autoPrint();
+  const blobUrl = URL.createObjectURL(doc.output('blob'));
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.src = blobUrl;
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } finally {
+      window.setTimeout(() => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 60_000);
+    }
+  };
+  document.body.appendChild(iframe);
 }
 

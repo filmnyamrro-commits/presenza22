@@ -12,7 +12,7 @@ export function exportAttendanceCsv(
 ): void {
   const headers = [
     'Full Name',
-    'Class / Department',
+    'Class / Department / School / City',
     'Participant Email',
     'Event Name',
     'Attendance Date',
@@ -94,7 +94,7 @@ export function exportFeedbackCsv(
     'Facilitator / Speaker',
     'Session / Topic',
     'Participant Name',
-    'Class / Department',
+    'Class / Department / School / City',
     'Participant Email',
     'Average Rating (1-5)',
     ...criterionLabels.map((lbl) => `Rating: ${lbl}`),

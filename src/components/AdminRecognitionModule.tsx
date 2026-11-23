@@ -56,6 +56,7 @@ import {
   type IssuedCertificateRecord,
   OperationType,
   type OrganizationBranding,
+  type ParticipationTemplateConfig,
   type RecognitionCategory,
   type RecognitionFontFamily,
   type RecognitionTemplateConfig,
@@ -74,6 +75,7 @@ import {
   DEFAULT_TERM_BEST_CATEGORIES,
   generateCertificateNumber,
   interpolateRecognitionWording,
+  mergeParticipationTemplate,
   mergeRecognitionTemplate,
   RECOGNITION_WORDING_PRESETS,
   resolveBestTermLabel,
@@ -92,6 +94,7 @@ import {
   printRecognitionCertificatesPdf,
   type RecognitionPdfBatchOptions,
 } from '../utils/pdfExport';
+import AdminParticipationModule from './AdminParticipationModule';
 
 interface AdminRecognitionModuleProps {
   user: User;
@@ -101,6 +104,7 @@ interface AdminRecognitionModuleProps {
   branding?: OrganizationBranding | null;
   categories: RecognitionCategory[];
   templateConfig: RecognitionTemplateConfig;
+  participationTemplate?: ParticipationTemplateConfig;
   certificates: IssuedCertificateRecord[];
   certificateSettings: CertificateSettings;
   onSyncCertificateSettings?: (next: CertificateSettings) => Promise<void>;
@@ -408,16 +412,14 @@ export default function AdminRecognitionModule({
   branding,
   categories,
   templateConfig,
+  participationTemplate,
   certificates,
   certificateSettings,
   onSyncCertificateSettings,
 }: AdminRecognitionModuleProps) {
-  // ONLY 2 top sub-menus:
-  // 1. choose-event (Event picker + Award & Issue + Certificate Recognition Recap per event)
-  // 2. studio (Certificate Studio: themes, background, Term 1–4, all categories, wording, signatories)
-  const [subTab, setSubTab] = useState<'choose-event' | 'studio'>(
-    'choose-event'
-  );
+  const [subTab, setSubTab] = useState<
+    'participation' | 'choose-event' | 'studio'
+  >('participation');
   const [studioSection, setStudioSection] = useState<
     'theme' | 'categories' | 'signatories'
   >('theme');
@@ -1556,23 +1558,38 @@ export default function AdminRecognitionModule({
         </div>
 
         <div
-          className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1 self-start lg:self-auto shrink-0"
+          className="inline-flex flex-wrap rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1 self-start lg:self-auto shrink-0"
           role="tablist"
           aria-label="Certificate and recognition sub-menus"
         >
           <button
             type="button"
             role="tab"
+            aria-selected={subTab === 'participation'}
+            onClick={() => setSubTab('participation')}
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
+              subTab === 'participation'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-4 h-4 text-blue-700" />
+            <span>1. Participation (All)</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
             aria-selected={subTab === 'choose-event'}
             onClick={() => setSubTab('choose-event')}
-            className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
               subTab === 'choose-event'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <CalendarDays className="w-4 h-4 text-amber-700" />
-            <span>1. Choose Event</span>
+            <span>2. Recognition Awards</span>
           </button>
 
           <button
@@ -1580,19 +1597,32 @@ export default function AdminRecognitionModule({
             role="tab"
             aria-selected={subTab === 'studio'}
             onClick={() => setSubTab('studio')}
-            className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${
               subTab === 'studio'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Palette className="w-4 h-4 text-amber-700" />
-            <span>2. Certificate Studio</span>
+            <span>3. Certificate Studio</span>
           </button>
         </div>
       </div>
 
-      {/* SUB-MENU 1: CHOOSE EVENT (Award & Issue + Event Certificate Recognition Recap) */}
+      {/* SUB-MENU 1: CERTIFICATE OF PARTICIPATION (AUTO FOR ALL PARTICIPANTS) */}
+      {subTab === 'participation' && (
+        <AdminParticipationModule
+          user={user}
+          events={events}
+          attendances={attendances}
+          branding={branding}
+          participationTemplate={mergeParticipationTemplate(participationTemplate)}
+          recognitionTemplate={templateConfig}
+          certificateSettings={certificateSettings}
+        />
+      )}
+
+      {/* SUB-MENU 2: CHOOSE EVENT (Award & Issue + Event Certificate Recognition Recap) */}
       {subTab === 'choose-event' && (
         <div className="space-y-6">
           {/* A. Event Selector & Recognition Category */}
@@ -1965,7 +1995,10 @@ export default function AdminRecognitionModule({
                       maxLength={100}
                       value={customNomineeDept}
                       onChange={(e) => setCustomNomineeDept(e.target.value)}
-                      placeholder="Class / Department (optional)"
+                      placeholder={`${
+                        selectedEvent.departmentLabel?.trim() ||
+                        'Class / Department / School / City'
+                      } (optional)`}
                       className="min-h-[38px] px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                     <input
@@ -2143,7 +2176,10 @@ export default function AdminRecognitionModule({
                         <th className="py-3 px-4 w-10">Pick</th>
                         <th className="py-3 px-4">Arrival</th>
                         <th className="py-3 px-4">Participant (Click Name to Select)</th>
-                        <th className="py-3 px-4">Class / Dept</th>
+                        <th className="py-3 px-4">
+                          {selectedEvent.departmentLabel?.trim() ||
+                            'Class / Dept / School / City'}
+                        </th>
                         <th className="py-3 px-4">Check-In &amp; Status</th>
                         {selectionMode === 'evaluation' && (
                           <th className="py-3 px-4">

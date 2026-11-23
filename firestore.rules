@@ -478,6 +478,57 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    function isValidParticipationTemplate(data) {
+      return data.keys().hasAll([
+          'languageFormat', 'orientation', 'fontFamily',
+          'primaryColor', 'accentColor', 'paperColor',
+          'titleEn', 'titleId', 'subtitleEn', 'subtitleId',
+          'wordingEn', 'wordingId', 'cityName',
+          'customLogoDataUrl', 'backgroundDataUrl', 'backgroundOpacity',
+          'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'showTopic', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'languageFormat', 'orientation', 'fontFamily',
+          'primaryColor', 'accentColor', 'paperColor',
+          'titleEn', 'titleId', 'subtitleEn', 'subtitleId',
+          'wordingEn', 'wordingId', 'cityName',
+          'customLogoDataUrl', 'backgroundDataUrl', 'backgroundOpacity',
+          'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'showTopic', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.languageFormat in ['bilingual', 'english', 'bahasa'] &&
+        data.orientation in ['landscape', 'portrait'] &&
+        data.fontFamily in ['times', 'helvetica', 'courier'] &&
+        isValidHexColor(data.primaryColor) &&
+        isValidHexColor(data.accentColor) &&
+        isValidHexColor(data.paperColor) &&
+        data.titleEn is string && data.titleEn.size() >= 2 && data.titleEn.size() <= 120 &&
+        data.titleId is string && data.titleId.size() >= 2 && data.titleId.size() <= 120 &&
+        data.subtitleEn is string && data.subtitleEn.size() <= 140 &&
+        data.subtitleId is string && data.subtitleId.size() <= 140 &&
+        data.wordingEn is string && data.wordingEn.size() >= 5 && data.wordingEn.size() <= 600 &&
+        data.wordingId is string && data.wordingId.size() >= 5 && data.wordingId.size() <= 600 &&
+        data.cityName is string && data.cityName.size() <= 80 &&
+        isValidOptionalImage(data.customLogoDataUrl, 320000) &&
+        isValidOptionalImage(data.backgroundDataUrl, 340000) &&
+        data.backgroundOpacity is number && data.backgroundOpacity >= 0 && data.backgroundOpacity <= 100 &&
+        data.picPdName is string && data.picPdName.size() <= 120 &&
+        data.picPdTitle is string && data.picPdTitle.size() <= 120 &&
+        isValidOptionalImage(data.picPdSignatureDataUrl, 150000) &&
+        data.principalName is string && data.principalName.size() <= 120 &&
+        data.principalTitle is string && data.principalTitle.size() <= 120 &&
+        isValidOptionalImage(data.principalSignatureDataUrl, 150000) &&
+        data.showTopic is bool &&
+        data.showCertificateId is bool &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
     function isValidIssuedCertificate(data) {
       return data.keys().hasAll([
           'certificateNumber', 'dedupeKey', 'eventId', 'eventTitle', 'eventDate',
@@ -882,6 +933,33 @@ service cloud.firestore {
           'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
           'principalName', 'principalTitle', 'principalSignatureDataUrl',
           'showTopic', 'showFacilitator', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(templateId);
+    }
+
+    match /participationTemplates/{templateId} {
+      allow get: if isValidId(templateId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(templateId) &&
+        isValidParticipationTemplate(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(templateId) &&
+        isValidParticipationTemplate(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'languageFormat', 'orientation', 'fontFamily',
+          'primaryColor', 'accentColor', 'paperColor',
+          'titleEn', 'titleId', 'subtitleEn', 'subtitleId',
+          'wordingEn', 'wordingId', 'cityName',
+          'customLogoDataUrl', 'backgroundDataUrl', 'backgroundOpacity',
+          'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'showTopic', 'showCertificateId',
           'updatedByUid', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(templateId);
