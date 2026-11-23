@@ -1,0 +1,973 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 5 &&
+        email.size() <= 128 &&
+        email.matches('^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$');
+    }
+
+    function isValidHexColor(color) {
+      return color is string && color.size() == 7 && color.matches('^#[0-9a-fA-F]{6}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userEmailLower() {
+      return request.auth.token.email is string ? request.auth.token.email.lower() : '';
+    }
+
+    function isPrimaryOwner() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        userEmailLower() == 'rohantmr.lover@gmail.com';
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        (
+          userEmailLower() == 'rohantmr.lover@gmail.com' ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+          (
+            isValidEmail(userEmailLower()) &&
+            exists(/databases/$(database)/documents/authorizedAdmins/$(userEmailLower()))
+          )
+        );
+    }
+
+    function isValidOptionalImage(val, maxLen) {
+      return val is string &&
+        val.size() <= maxLen &&
+        (
+          val.size() == 0 ||
+          (
+            val.size() >= 30 &&
+            (
+              val[0:22] == 'data:image/png;base64,' ||
+              val[0:23] == 'data:image/jpeg;base64,' ||
+              val[0:23] == 'data:image/webp;base64,'
+            )
+          )
+        );
+    }
+
+    function isValidCertElement(el) {
+      return el is map &&
+        el.keys().hasAll(['visible', 'x', 'y']) &&
+        el.keys().hasOnly(['visible', 'x', 'y']) &&
+        el.visible is bool &&
+        el.x is number && el.x >= 0 && el.x <= 297 &&
+        el.y is number && el.y >= 0 && el.y <= 210;
+    }
+
+    function isValidBestTerm(val) {
+      return val is string && val in ['none', 'term1', 'term2', 'term3', 'term4'];
+    }
+
+    function isValidTermBestCategories(m) {
+      return m is map &&
+        m.keys().hasAll(['term1', 'term2', 'term3', 'term4']) &&
+        m.keys().hasOnly(['term1', 'term2', 'term3', 'term4']) &&
+        m.term1 is string && m.term1.size() <= 100 &&
+        m.term2 is string && m.term2.size() <= 100 &&
+        m.term3 is string && m.term3.size() <= 100 &&
+        m.term4 is string && m.term4.size() <= 100;
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll([
+          'title', 'category', 'description', 'venue', 'eventDate',
+          'startTime', 'lateCutoffTime', 'cutoffTimestamp', 'status',
+          'createdByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'title', 'category', 'description', 'venue', 'eventDate',
+          'startTime', 'lateCutoffTime', 'cutoffTimestamp', 'status',
+          'createdByUid', 'createdAt', 'updatedAt',
+          'departmentLabel', 'departmentPresets', 'consentText',
+          'facilitators', 'principalName', 'requireParticipantLogin',
+          'theme', 'topic'
+        ]) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+        data.description is string && data.description.size() <= 500 &&
+        data.venue is string && data.venue.size() >= 1 && data.venue.size() <= 120 &&
+        data.eventDate is string && data.eventDate.size() == 10 && data.eventDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.startTime is string && data.startTime.size() == 5 && data.startTime.matches('^[0-9]{2}:[0-9]{2}$') &&
+        data.lateCutoffTime is string && data.lateCutoffTime.size() == 5 && data.lateCutoffTime.matches('^[0-9]{2}:[0-9]{2}$') &&
+        data.cutoffTimestamp is timestamp &&
+        data.status in ['active', 'closed'] &&
+        isValidId(data.createdByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('departmentLabel' in data) || (data.departmentLabel is string && data.departmentLabel.size() <= 80)) &&
+        (!('departmentPresets' in data) || (data.departmentPresets is string && data.departmentPresets.size() <= 300)) &&
+        (!('consentText' in data) || (data.consentText is string && data.consentText.size() <= 400)) &&
+        (!('facilitators' in data) || (data.facilitators is string && data.facilitators.size() <= 200)) &&
+        (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
+        (!('requireParticipantLogin' in data) || data.requireParticipantLogin is bool) &&
+        (!('theme' in data) || (data.theme is string && data.theme.size() <= 120)) &&
+        (!('topic' in data) || (data.topic is string && data.topic.size() <= 200));
+    }
+
+    function isValidAttendance(data) {
+      return data.keys().hasAll([
+          'eventId', 'eventName', 'fullName', 'classDepartment',
+          'photoDataUrl', 'photoConsent', 'attendanceDate',
+          'checkInTime', 'serverTimestamp', 'status', 'lateExcuse'
+        ]) &&
+        data.keys().hasOnly([
+          'eventId', 'eventName', 'fullName', 'classDepartment',
+          'photoDataUrl', 'photoConsent', 'attendanceDate',
+          'checkInTime', 'serverTimestamp', 'status', 'lateExcuse',
+          'participantEmail', 'participantUid'
+        ]) &&
+        isValidId(data.eventId) &&
+        data.eventName is string && data.eventName.size() >= 2 && data.eventName.size() <= 140 &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100 &&
+        data.classDepartment is string && data.classDepartment.size() >= 1 && data.classDepartment.size() <= 100 &&
+        data.photoDataUrl is string && data.photoDataUrl.size() >= 30 && data.photoDataUrl.size() <= 250000 &&
+        (
+          data.photoDataUrl[0:23] == 'data:image/jpeg;base64,' ||
+          data.photoDataUrl[0:22] == 'data:image/png;base64,' ||
+          data.photoDataUrl[0:23] == 'data:image/webp;base64,'
+        ) &&
+        data.photoConsent is bool &&
+        data.attendanceDate is string && data.attendanceDate.size() == 10 && data.attendanceDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.checkInTime is string && data.checkInTime.size() >= 4 && data.checkInTime.size() <= 32 &&
+        data.serverTimestamp is timestamp &&
+        data.status in ['On Time', 'Late'] &&
+        data.lateExcuse is string && data.lateExcuse.size() <= 300 &&
+        (data.status == 'On Time' || data.lateExcuse.size() >= 3) &&
+        (!('participantEmail' in data) || data.participantEmail == '' || isValidEmail(data.participantEmail)) &&
+        (!('participantUid' in data) || data.participantUid == '' || isValidId(data.participantUid));
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'addedByUid', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'addedByUid', 'createdAt']) &&
+        isValidId(data.uid) &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        isValidId(data.addedByUid) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAuthorizedAdmin(data) {
+      return data.keys().hasAll(['email', 'displayName', 'addedByUid', 'addedByEmail', 'createdAt']) &&
+        data.keys().hasOnly(['email', 'displayName', 'addedByUid', 'addedByEmail', 'createdAt']) &&
+        isValidEmail(data.email) &&
+        data.displayName is string && data.displayName.size() <= 100 &&
+        isValidId(data.addedByUid) &&
+        isValidEmail(data.addedByEmail) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidDashboardSetting(data) {
+      return data.keys().hasAll(['backgroundDataUrl', 'updatedByUid', 'updatedAt']) &&
+        data.keys().hasOnly(['backgroundDataUrl', 'backgroundOpacity', 'updatedByUid', 'updatedAt']) &&
+        data.backgroundDataUrl is string &&
+        data.backgroundDataUrl.size() >= 30 &&
+        data.backgroundDataUrl.size() <= 450000 &&
+        data.backgroundDataUrl[0:23] == 'data:image/jpeg;base64,' &&
+        (!('backgroundOpacity' in data) || (data.backgroundOpacity is number && data.backgroundOpacity >= 0 && data.backgroundOpacity <= 100)) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidOptionalPublicUrl(val) {
+      return val is string &&
+        val.size() <= 250 &&
+        (
+          val.size() == 0 ||
+          (val.size() >= 10 && val.matches('^https://[a-zA-Z0-9.\\-]+(:[0-9]{1,5})?$'))
+        );
+    }
+
+    function isValidBranding(data) {
+      return data.keys().hasAll(['organizationName', 'logoDataUrl', 'updatedByUid', 'updatedAt']) &&
+        data.keys().hasOnly(['organizationName', 'logoDataUrl', 'publicAppUrl', 'updatedByUid', 'updatedAt']) &&
+        data.organizationName is string && data.organizationName.size() <= 120 &&
+        isValidOptionalImage(data.logoDataUrl, 350000) &&
+        (!('publicAppUrl' in data) || isValidOptionalPublicUrl(data.publicAppUrl)) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCertificateSetting(data) {
+      return data.keys().hasAll([
+          'themeId', 'backgroundDataUrl', 'backgroundOpacity',
+          'facilitatorSignatureDataUrl', 'principalSignatureDataUrl',
+          'elements', 'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'themeId', 'backgroundDataUrl', 'backgroundOpacity',
+          'facilitatorSignatureDataUrl', 'principalSignatureDataUrl',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'bestTerm', 'termBestCategories',
+          'elements', 'updatedByUid', 'updatedAt'
+        ]) &&
+        data.themeId in [
+          'classic-navy', 'emerald-academic', 'royal-slate', 'crimson-crest', 'teal-modern'
+        ] &&
+        isValidOptionalImage(data.backgroundDataUrl, 340000) &&
+        data.backgroundOpacity is number && data.backgroundOpacity >= 0 && data.backgroundOpacity <= 100 &&
+        isValidOptionalImage(data.facilitatorSignatureDataUrl, 150000) &&
+        isValidOptionalImage(data.principalSignatureDataUrl, 150000) &&
+        (!('picPdName' in data) || (data.picPdName is string && data.picPdName.size() <= 120)) &&
+        (!('picPdTitle' in data) || (data.picPdTitle is string && data.picPdTitle.size() <= 120)) &&
+        (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
+        (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
+        (!('bestTerm' in data) || isValidBestTerm(data.bestTerm)) &&
+        (!('termBestCategories' in data) || isValidTermBestCategories(data.termBestCategories)) &&
+        data.elements is map &&
+        data.elements.keys().hasAll([
+          'orgLogo', 'orgName', 'kicker', 'title', 'subtitle',
+          'rankBadge', 'photo', 'awardedTo', 'recipientName', 'department',
+          'citation', 'seal', 'dateFooter', 'facilitatorBlock', 'principalBlock'
+        ]) &&
+        data.elements.keys().hasOnly([
+          'orgLogo', 'orgName', 'kicker', 'title', 'subtitle',
+          'rankBadge', 'photo', 'awardedTo', 'recipientName', 'department',
+          'citation', 'seal', 'dateFooter', 'facilitatorBlock', 'principalBlock'
+        ]) &&
+        isValidCertElement(data.elements.orgLogo) &&
+        isValidCertElement(data.elements.orgName) &&
+        isValidCertElement(data.elements.kicker) &&
+        isValidCertElement(data.elements.title) &&
+        isValidCertElement(data.elements.subtitle) &&
+        isValidCertElement(data.elements.rankBadge) &&
+        isValidCertElement(data.elements.photo) &&
+        isValidCertElement(data.elements.awardedTo) &&
+        isValidCertElement(data.elements.recipientName) &&
+        isValidCertElement(data.elements.department) &&
+        isValidCertElement(data.elements.citation) &&
+        isValidCertElement(data.elements.seal) &&
+        isValidCertElement(data.elements.dateFooter) &&
+        isValidCertElement(data.elements.facilitatorBlock) &&
+        isValidCertElement(data.elements.principalBlock) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeedbackConfig(data) {
+      return data.keys().hasAll([
+          'eventId', 'introNote', 'requireWrittenComment',
+          'ratingCriteria', 'categories', 'statements',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'eventId', 'formHeading', 'introNote',
+          'ratingSectionTitle', 'ratingSectionSubtitle',
+          'checklistSectionTitle', 'checklistSectionSubtitle',
+          'commentQuestionLabel', 'commentPlaceholder',
+          'requireWrittenComment',
+          'allowAttachment', 'requireAttachment', 'attachmentLabel',
+          'ratingCriteria', 'categories', 'statements',
+          'customQuestions',
+          'feedbackActive',
+          'scheduleEnabled', 'openAtIso', 'closeAtIso',
+          'openTimestamp', 'closeTimestamp', 'scheduleClosedMessage',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        isValidId(data.eventId) &&
+        (!('formHeading' in data) || (data.formHeading is string && data.formHeading.size() <= 120)) &&
+        data.introNote is string && data.introNote.size() <= 400 &&
+        (!('ratingSectionTitle' in data) || (data.ratingSectionTitle is string && data.ratingSectionTitle.size() <= 140)) &&
+        (!('ratingSectionSubtitle' in data) || (data.ratingSectionSubtitle is string && data.ratingSectionSubtitle.size() <= 300)) &&
+        (!('checklistSectionTitle' in data) || (data.checklistSectionTitle is string && data.checklistSectionTitle.size() <= 140)) &&
+        (!('checklistSectionSubtitle' in data) || (data.checklistSectionSubtitle is string && data.checklistSectionSubtitle.size() <= 300)) &&
+        (!('commentQuestionLabel' in data) || (data.commentQuestionLabel is string && data.commentQuestionLabel.size() <= 160)) &&
+        (!('commentPlaceholder' in data) || (data.commentPlaceholder is string && data.commentPlaceholder.size() <= 240)) &&
+        data.requireWrittenComment is bool &&
+        (!('allowAttachment' in data) || data.allowAttachment is bool) &&
+        (!('requireAttachment' in data) || data.requireAttachment is bool) &&
+        (!('attachmentLabel' in data) || (data.attachmentLabel is string && data.attachmentLabel.size() <= 160)) &&
+        data.ratingCriteria is list && data.ratingCriteria.size() >= 1 && data.ratingCriteria.size() <= 12 &&
+        data.ratingCriteria[0] is map &&
+        data.categories is list && data.categories.size() >= 1 && data.categories.size() <= 12 &&
+        data.categories[0] is map &&
+        data.statements is list && data.statements.size() <= 40 &&
+        (data.statements.size() == 0 || data.statements[0] is map) &&
+        (!('customQuestions' in data) || (data.customQuestions is list && data.customQuestions.size() <= 6 && (data.customQuestions.size() == 0 || data.customQuestions[0] is map))) &&
+        (!('feedbackActive' in data) || data.feedbackActive is bool) &&
+        (!('scheduleEnabled' in data) || data.scheduleEnabled is bool) &&
+        (!('openAtIso' in data) || (data.openAtIso is string && data.openAtIso.size() <= 40)) &&
+        (!('closeAtIso' in data) || (data.closeAtIso is string && data.closeAtIso.size() <= 40)) &&
+        (!('openTimestamp' in data) || data.openTimestamp is timestamp) &&
+        (!('closeTimestamp' in data) || data.closeTimestamp is timestamp) &&
+        (!('scheduleClosedMessage' in data) || (data.scheduleClosedMessage is string && data.scheduleClosedMessage.size() <= 300)) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isConfigScheduleCurrentlyOpen(cfg) {
+      return (!('feedbackActive' in cfg) || cfg.feedbackActive == true) &&
+        (
+          !('scheduleEnabled' in cfg) ||
+          cfg.scheduleEnabled != true ||
+          (
+            (!('openTimestamp' in cfg) || request.time >= cfg.openTimestamp) &&
+            (!('closeTimestamp' in cfg) || request.time <= cfg.closeTimestamp)
+          )
+        );
+    }
+
+    function isFeedbackWindowOpen(eventId) {
+      return exists(/databases/$(database)/documents/feedbackConfigs/$(eventId))
+        ? isConfigScheduleCurrentlyOpen(get(/databases/$(database)/documents/feedbackConfigs/$(eventId)).data)
+        : (
+            !exists(/databases/$(database)/documents/feedbackConfigs/default) ||
+            isConfigScheduleCurrentlyOpen(get(/databases/$(database)/documents/feedbackConfigs/default).data)
+          );
+    }
+
+    function isValidFeedbackAttachmentMeta(att) {
+      return att is map &&
+        att.keys().hasAll(['attachmentId', 'fileName', 'mimeType', 'fileCategory', 'byteSize', 'chunkCount']) &&
+        att.keys().hasOnly(['attachmentId', 'fileName', 'mimeType', 'fileCategory', 'byteSize', 'chunkCount']) &&
+        isValidId(att.attachmentId) &&
+        att.fileName is string && att.fileName.size() >= 1 && att.fileName.size() <= 180 &&
+        att.mimeType in ['application/pdf', 'image/jpeg', 'video/mp4', 'video/quicktime'] &&
+        att.fileCategory in ['pdf', 'image', 'video'] &&
+        att.byteSize is int && att.byteSize >= 1 && att.byteSize <= 5242880 &&
+        att.chunkCount is int && att.chunkCount >= 1 && att.chunkCount <= 24;
+    }
+
+    function isValidFeedbackSubmission(data) {
+      return data.keys().hasAll([
+          'eventId', 'eventTitle', 'eventDate', 'eventVenue',
+          'facilitatorName', 'sessionTopic', 'ratings', 'averageRating',
+          'selectedStatements', 'writtenComment', 'clientSubmissionToken',
+          'serverTimestamp'
+        ]) &&
+        data.keys().hasOnly([
+          'eventId', 'eventTitle', 'eventDate', 'eventVenue',
+          'facilitatorName', 'sessionTopic', 'ratings', 'averageRating',
+          'selectedStatements', 'writtenComment', 'customAnswers', 'attachment',
+          'participantName', 'participantDepartment', 'participantEmail', 'attendanceId',
+          'clientSubmissionToken', 'serverTimestamp'
+        ]) &&
+        isValidId(data.eventId) &&
+        data.eventTitle is string && data.eventTitle.size() >= 2 && data.eventTitle.size() <= 140 &&
+        data.eventDate is string && data.eventDate.size() == 10 && data.eventDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.eventVenue is string && data.eventVenue.size() <= 120 &&
+        data.facilitatorName is string && data.facilitatorName.size() <= 200 &&
+        data.sessionTopic is string && data.sessionTopic.size() <= 200 &&
+        data.ratings is list && data.ratings.size() >= 0 && data.ratings.size() <= 12 &&
+        (data.ratings.size() == 0 || data.ratings[0] is map) &&
+        data.averageRating is number && data.averageRating >= 0 && data.averageRating <= 5 &&
+        data.selectedStatements is list && data.selectedStatements.size() <= 40 &&
+        (data.selectedStatements.size() == 0 || data.selectedStatements[0] is map) &&
+        data.writtenComment is string && data.writtenComment.size() <= 1500 &&
+        (!('customAnswers' in data) || (data.customAnswers is list && data.customAnswers.size() <= 6 && (data.customAnswers.size() == 0 || data.customAnswers[0] is map))) &&
+        (!('attachment' in data) || isValidFeedbackAttachmentMeta(data.attachment)) &&
+        (!('participantName' in data) || (data.participantName is string && data.participantName.size() <= 100)) &&
+        (!('participantDepartment' in data) || (data.participantDepartment is string && data.participantDepartment.size() <= 100)) &&
+        (!('participantEmail' in data) || data.participantEmail == '' || isValidEmail(data.participantEmail)) &&
+        (!('attendanceId' in data) || data.attendanceId == '' || isValidId(data.attendanceId)) &&
+        isValidId(data.clientSubmissionToken) &&
+        data.serverTimestamp is timestamp;
+    }
+
+    function isValidFeedbackAttachment(data) {
+      return data.keys().hasAll([
+          'submissionId', 'eventId', 'fileName', 'mimeType',
+          'fileCategory', 'byteSize', 'chunkCount', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'submissionId', 'eventId', 'fileName', 'mimeType',
+          'fileCategory', 'byteSize', 'chunkCount', 'createdAt'
+        ]) &&
+        isValidId(data.submissionId) &&
+        isValidId(data.eventId) &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 180 &&
+        data.mimeType in ['application/pdf', 'image/jpeg', 'video/mp4', 'video/quicktime'] &&
+        data.fileCategory in ['pdf', 'image', 'video'] &&
+        data.byteSize is int && data.byteSize >= 1 && data.byteSize <= 5242880 &&
+        data.chunkCount is int && data.chunkCount >= 1 && data.chunkCount <= 24 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidFeedbackAttachmentChunk(data) {
+      return data.keys().hasAll([
+          'submissionId', 'eventId', 'chunkIndex', 'data', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'submissionId', 'eventId', 'chunkIndex', 'data', 'createdAt'
+        ]) &&
+        isValidId(data.submissionId) &&
+        isValidId(data.eventId) &&
+        data.chunkIndex is int && data.chunkIndex >= 0 && data.chunkIndex < 24 &&
+        data.data is string && data.data.size() >= 1 && data.data.size() <= 350000 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidRecognitionCategory(data) {
+      return data.keys().hasAll(['name', 'description', 'sortOrder', 'createdByUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'description', 'sortOrder', 'createdByUid', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.description is string && data.description.size() <= 300 &&
+        data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 1000 &&
+        isValidId(data.createdByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidRecognitionTemplate(data) {
+      return data.keys().hasAll([
+          'orientation', 'title', 'subtitle', 'wordingTemplate',
+          'fontFamily', 'primaryColor', 'accentColor', 'paperColor',
+          'customLogoDataUrl', 'signatureDataUrl', 'signatoryLabel',
+          'showTopic', 'showFacilitator', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'orientation', 'title', 'subtitle', 'wordingTemplate',
+          'fontFamily', 'primaryColor', 'accentColor', 'paperColor',
+          'customLogoDataUrl', 'signatureDataUrl', 'signatoryLabel',
+          'bestTerm', 'termBestCategories',
+          'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'showTopic', 'showFacilitator', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.orientation in ['landscape', 'portrait'] &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 120 &&
+        data.subtitle is string && data.subtitle.size() <= 140 &&
+        data.wordingTemplate is string && data.wordingTemplate.size() >= 5 && data.wordingTemplate.size() <= 600 &&
+        data.fontFamily in ['times', 'helvetica', 'courier'] &&
+        isValidHexColor(data.primaryColor) &&
+        isValidHexColor(data.accentColor) &&
+        isValidHexColor(data.paperColor) &&
+        isValidOptionalImage(data.customLogoDataUrl, 320000) &&
+        isValidOptionalImage(data.signatureDataUrl, 150000) &&
+        data.signatoryLabel is string && data.signatoryLabel.size() <= 120 &&
+        (!('bestTerm' in data) || isValidBestTerm(data.bestTerm)) &&
+        (!('termBestCategories' in data) || isValidTermBestCategories(data.termBestCategories)) &&
+        (!('picPdName' in data) || (data.picPdName is string && data.picPdName.size() <= 120)) &&
+        (!('picPdTitle' in data) || (data.picPdTitle is string && data.picPdTitle.size() <= 120)) &&
+        (!('picPdSignatureDataUrl' in data) || isValidOptionalImage(data.picPdSignatureDataUrl, 150000)) &&
+        (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
+        (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
+        (!('principalSignatureDataUrl' in data) || isValidOptionalImage(data.principalSignatureDataUrl, 150000)) &&
+        data.showTopic is bool &&
+        data.showFacilitator is bool &&
+        data.showCertificateId is bool &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidIssuedCertificate(data) {
+      return data.keys().hasAll([
+          'certificateNumber', 'dedupeKey', 'eventId', 'eventTitle', 'eventDate',
+          'eventVenue', 'eventTheme', 'eventTopic', 'facilitators', 'organizerName',
+          'attendanceId', 'participantName', 'participantDepartment', 'participantEmail',
+          'categoryId', 'categoryName', 'issueDate', 'selectionMethod',
+          'orientation', 'certificateTitle', 'certificateSubtitle', 'wordingText',
+          'fontFamily', 'primaryColor', 'accentColor', 'paperColor', 'signatoryLabel',
+          'issuedByUid', 'issuedByEmail', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'certificateNumber', 'dedupeKey', 'eventId', 'eventTitle', 'eventDate',
+          'eventVenue', 'eventTheme', 'eventTopic', 'facilitators', 'organizerName',
+          'attendanceId', 'participantName', 'participantDepartment', 'participantEmail',
+          'categoryId', 'categoryName', 'bestTerm', 'termCategoryName',
+          'issueDate', 'selectionMethod',
+          'orientation', 'certificateTitle', 'certificateSubtitle', 'wordingText',
+          'fontFamily', 'primaryColor', 'accentColor', 'paperColor', 'signatoryLabel',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'issuedByUid', 'issuedByEmail', 'createdAt'
+        ]) &&
+        data.certificateNumber is string && data.certificateNumber.size() >= 4 && data.certificateNumber.size() <= 40 &&
+        data.dedupeKey is string && data.dedupeKey.size() >= 4 && data.dedupeKey.size() <= 240 &&
+        isValidId(data.eventId) &&
+        data.eventTitle is string && data.eventTitle.size() >= 2 && data.eventTitle.size() <= 140 &&
+        data.eventDate is string && data.eventDate.size() == 10 &&
+        data.eventVenue is string && data.eventVenue.size() <= 120 &&
+        data.eventTheme is string && data.eventTheme.size() <= 120 &&
+        data.eventTopic is string && data.eventTopic.size() <= 200 &&
+        data.facilitators is string && data.facilitators.size() <= 200 &&
+        data.organizerName is string && data.organizerName.size() <= 120 &&
+        (data.attendanceId == '' || isValidId(data.attendanceId)) &&
+        data.participantName is string && data.participantName.size() >= 2 && data.participantName.size() <= 100 &&
+        data.participantDepartment is string && data.participantDepartment.size() <= 100 &&
+        (data.participantEmail == '' || isValidEmail(data.participantEmail)) &&
+        isValidId(data.categoryId) &&
+        data.categoryName is string && data.categoryName.size() >= 2 && data.categoryName.size() <= 100 &&
+        (!('bestTerm' in data) || isValidBestTerm(data.bestTerm)) &&
+        (!('termCategoryName' in data) || (data.termCategoryName is string && data.termCategoryName.size() <= 100)) &&
+        data.issueDate is string && data.issueDate.size() == 10 &&
+        data.selectionMethod in ['manual', 'evaluation'] &&
+        data.orientation in ['landscape', 'portrait'] &&
+        data.certificateTitle is string && data.certificateTitle.size() >= 2 && data.certificateTitle.size() <= 120 &&
+        data.certificateSubtitle is string && data.certificateSubtitle.size() <= 140 &&
+        data.wordingText is string && data.wordingText.size() >= 5 && data.wordingText.size() <= 700 &&
+        data.fontFamily in ['times', 'helvetica', 'courier'] &&
+        isValidHexColor(data.primaryColor) &&
+        isValidHexColor(data.accentColor) &&
+        isValidHexColor(data.paperColor) &&
+        data.signatoryLabel is string && data.signatoryLabel.size() <= 120 &&
+        (!('picPdName' in data) || (data.picPdName is string && data.picPdName.size() <= 120)) &&
+        (!('picPdTitle' in data) || (data.picPdTitle is string && data.picPdTitle.size() <= 120)) &&
+        (!('principalName' in data) || (data.principalName is string && data.principalName.size() <= 120)) &&
+        (!('principalTitle' in data) || (data.principalTitle is string && data.principalTitle.size() <= 120)) &&
+        isValidId(data.issuedByUid) &&
+        isValidEmail(data.issuedByEmail) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidVoiceSetting(data) {
+      return data.keys().hasAll([
+          'enabled', 'engineMode', 'voiceId', 'browserVoiceUri',
+          'language', 'speakingRate', 'volume',
+          'englishTemplate', 'indonesianTemplate',
+          'announceOnDashboard', 'announceOnCheckIn',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'enabled', 'engineMode', 'voiceId', 'browserVoiceUri',
+          'language', 'speakingRate', 'volume',
+          'englishTemplate', 'indonesianTemplate',
+          'announceOnDashboard', 'announceOnCheckIn',
+          'showReplayWelcomeOnCheckIn',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.enabled is bool &&
+        data.engineMode in ['auto', 'ai', 'browser'] &&
+        data.voiceId in [
+          'en-prof-male', 'en-friendly-male', 'en-prof-female',
+          'en-friendly-female', 'id-male', 'id-female', 'browser-custom'
+        ] &&
+        data.browserVoiceUri is string && data.browserVoiceUri.size() <= 200 &&
+        data.language in ['en-US', 'id-ID'] &&
+        data.speakingRate is number && data.speakingRate >= 0.6 && data.speakingRate <= 1.5 &&
+        data.volume is number && data.volume >= 0 && data.volume <= 1 &&
+        data.englishTemplate is string && data.englishTemplate.size() >= 2 && data.englishTemplate.size() <= 300 &&
+        data.indonesianTemplate is string && data.indonesianTemplate.size() >= 2 && data.indonesianTemplate.size() <= 300 &&
+        data.announceOnDashboard is bool &&
+        data.announceOnCheckIn is bool &&
+        (!('showReplayWelcomeOnCheckIn' in data) || data.showReplayWelcomeOnCheckIn is bool) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLiveBoardSetting(data) {
+      return data.keys().hasAll([
+          'animationStyle', 'animationDurationMs', 'cardLayout',
+          'columnsMode', 'manualColumns', 'photoSize', 'fontSize',
+          'backgroundTheme', 'displayMode', 'rotationIntervalSec',
+          'disableAnimations', 'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'animationStyle', 'animationDurationMs', 'cardLayout',
+          'columnsMode', 'manualColumns', 'photoSize', 'fontSize',
+          'backgroundTheme', 'displayMode', 'rotationIntervalSec',
+          'disableAnimations', 'updatedByUid', 'updatedAt'
+        ]) &&
+        data.animationStyle in ['zoom-bounce', 'slide-up', 'slide-side', 'fade-scale'] &&
+        data.animationDurationMs is number && data.animationDurationMs >= 250 && data.animationDurationMs <= 1500 &&
+        data.cardLayout in ['portrait-card', 'horizontal-tile', 'compact-badge'] &&
+        data.columnsMode in ['auto', 'manual'] &&
+        data.manualColumns is number && data.manualColumns >= 1 && data.manualColumns <= 10 &&
+        data.photoSize in ['auto', 'sm', 'md', 'lg', 'xl'] &&
+        data.fontSize in ['auto', 'sm', 'md', 'lg', 'xl'] &&
+        data.backgroundTheme in [
+          'clean-light', 'slate-conference', 'midnight-projector',
+          'emerald-hall', 'warm-ivory'
+        ] &&
+        data.displayMode in ['fit', 'auto-paginate', 'rotating', 'manual'] &&
+        data.rotationIntervalSec is number && data.rotationIntervalSec >= 4 && data.rotationIntervalSec <= 60 &&
+        data.disableAnimations is bool &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAuthorizedDevice(data) {
+      return data.keys().hasAll([
+          'deviceId', 'deviceName', 'userAgentSummary', 'status',
+          'authorizedBy', 'authorizedAtIso', 'lastSeenAtIso',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'deviceId', 'deviceName', 'userAgentSummary', 'status',
+          'authorizedBy', 'authorizedAtIso', 'lastSeenAtIso', 'revokedAtIso',
+          'updatedByUid', 'updatedAt'
+        ]) &&
+        isValidId(data.deviceId) &&
+        data.deviceName is string && data.deviceName.size() >= 1 && data.deviceName.size() <= 120 &&
+        data.userAgentSummary is string && data.userAgentSummary.size() <= 200 &&
+        data.status in ['active', 'revoked'] &&
+        data.authorizedBy in ['code', 'owner-google', 'owner-direct'] &&
+        data.authorizedAtIso is string && data.authorizedAtIso.size() <= 64 &&
+        data.lastSeenAtIso is string && data.lastSeenAtIso.size() <= 64 &&
+        (!('revokedAtIso' in data) || (data.revokedAtIso is string && data.revokedAtIso.size() <= 64)) &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    match /events/{eventId} {
+      allow get: if isValidId(eventId);
+      allow list: if existing().status == 'active' || isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(eventId) &&
+        isValidEvent(incoming()) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(eventId) &&
+        isValidEvent(incoming()) &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'category', 'description', 'venue', 'eventDate',
+          'startTime', 'lateCutoffTime', 'cutoffTimestamp', 'status', 'updatedAt',
+          'departmentLabel', 'departmentPresets', 'consentText',
+          'facilitators', 'principalName', 'requireParticipantLogin',
+          'theme', 'topic'
+        ]);
+      allow delete: if isAdmin() && isValidId(eventId);
+    }
+
+    match /attendances/{attendanceId} {
+      allow get: if isAdmin() && isValidId(attendanceId);
+      allow list: if isAdmin();
+      allow create: if isValidId(attendanceId) &&
+        isValidAttendance(incoming()) &&
+        incoming().photoConsent == true &&
+        incoming().serverTimestamp == request.time &&
+        exists(/databases/$(database)/documents/events/$(incoming().eventId)) &&
+        get(/databases/$(database)/documents/events/$(incoming().eventId)).data.status == 'active' &&
+        incoming().eventName == get(/databases/$(database)/documents/events/$(incoming().eventId)).data.title;
+      allow update: if isAdmin() &&
+        isValidId(attendanceId) &&
+        isValidAttendance(incoming()) &&
+        incoming().eventId == existing().eventId &&
+        incoming().serverTimestamp == existing().serverTimestamp &&
+        incoming().photoDataUrl == existing().photoDataUrl &&
+        incoming().photoConsent == existing().photoConsent &&
+        incoming().attendanceDate == existing().attendanceDate &&
+        incoming().checkInTime == existing().checkInTime &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'classDepartment', 'status', 'lateExcuse']);
+      allow delete: if isAdmin() && isValidId(attendanceId);
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isAdmin() && isValidId(adminUid);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(adminUid) &&
+        isValidAdminUser(incoming()) &&
+        incoming().uid == adminUid &&
+        incoming().addedByUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(adminUid) && adminUid != request.auth.uid;
+    }
+
+    match /authorizedAdmins/{adminEmail} {
+      allow get: if isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        isValidEmail(adminEmail) &&
+        (adminEmail == userEmailLower() || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidEmail(adminEmail) &&
+        isValidAuthorizedAdmin(incoming()) &&
+        incoming().email == adminEmail &&
+        incoming().addedByUid == request.auth.uid &&
+        incoming().addedByEmail == userEmailLower() &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() &&
+        isValidEmail(adminEmail) &&
+        adminEmail != userEmailLower();
+    }
+
+    match /dashboardSettings/{settingId} {
+      allow get: if isAdmin() && isValidId(settingId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidDashboardSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidDashboardSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['backgroundDataUrl', 'backgroundOpacity', 'updatedByUid', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    match /branding/{brandingId} {
+      allow get: if isValidId(brandingId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(brandingId) &&
+        isValidBranding(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(brandingId) &&
+        isValidBranding(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['organizationName', 'logoDataUrl', 'publicAppUrl', 'updatedByUid', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(brandingId);
+    }
+
+    match /certificateSettings/{settingId} {
+      allow get: if isAdmin() && isValidId(settingId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidCertificateSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidCertificateSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'themeId', 'backgroundDataUrl', 'backgroundOpacity',
+          'facilitatorSignatureDataUrl', 'principalSignatureDataUrl',
+          'picPdName', 'picPdTitle', 'principalName', 'principalTitle',
+          'bestTerm', 'termBestCategories',
+          'elements', 'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    match /feedbackConfigs/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(configId) &&
+        isValidFeedbackConfig(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(configId) &&
+        isValidFeedbackConfig(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'formHeading', 'introNote',
+          'ratingSectionTitle', 'ratingSectionSubtitle',
+          'checklistSectionTitle', 'checklistSectionSubtitle',
+          'commentQuestionLabel', 'commentPlaceholder',
+          'requireWrittenComment',
+          'allowAttachment', 'requireAttachment', 'attachmentLabel',
+          'ratingCriteria', 'categories', 'statements',
+          'customQuestions',
+          'feedbackActive',
+          'scheduleEnabled', 'openAtIso', 'closeAtIso',
+          'openTimestamp', 'closeTimestamp', 'scheduleClosedMessage',
+          'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(configId);
+    }
+
+    match /feedbackSubmissions/{submissionId} {
+      allow get: if isAdmin() && isValidId(submissionId);
+      allow list: if isAdmin();
+      allow create: if isValidId(submissionId) &&
+        isValidFeedbackSubmission(incoming()) &&
+        incoming().serverTimestamp == request.time &&
+        exists(/databases/$(database)/documents/events/$(incoming().eventId)) &&
+        get(/databases/$(database)/documents/events/$(incoming().eventId)).data.status == 'active' &&
+        incoming().eventTitle == get(/databases/$(database)/documents/events/$(incoming().eventId)).data.title &&
+        isFeedbackWindowOpen(incoming().eventId);
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(submissionId);
+    }
+
+    match /feedbackAttachments/{attachmentId} {
+      allow get: if isAdmin() && isValidId(attachmentId);
+      allow list: if isAdmin();
+      allow create: if isValidId(attachmentId) &&
+        isValidFeedbackAttachment(incoming()) &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/events/$(incoming().eventId)) &&
+        get(/databases/$(database)/documents/events/$(incoming().eventId)).data.status == 'active' &&
+        isFeedbackWindowOpen(incoming().eventId) &&
+        exists(/databases/$(database)/documents/feedbackSubmissions/$(incoming().submissionId)) &&
+        get(/databases/$(database)/documents/feedbackSubmissions/$(incoming().submissionId)).data.eventId == incoming().eventId &&
+        'attachment' in get(/databases/$(database)/documents/feedbackSubmissions/$(incoming().submissionId)).data &&
+        get(/databases/$(database)/documents/feedbackSubmissions/$(incoming().submissionId)).data.attachment.attachmentId == attachmentId &&
+        get(/databases/$(database)/documents/feedbackSubmissions/$(incoming().submissionId)).data.attachment.chunkCount == incoming().chunkCount;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(attachmentId);
+
+      match /chunks/{chunkId} {
+        allow get: if isAdmin() && isValidId(attachmentId) && isValidId(chunkId);
+        allow list: if isAdmin();
+        allow create: if isValidId(attachmentId) &&
+          chunkId is string && chunkId.matches('^chunk_[0-9]{1,2}$') &&
+          isValidFeedbackAttachmentChunk(incoming()) &&
+          incoming().createdAt == request.time &&
+          exists(/databases/$(database)/documents/feedbackAttachments/$(attachmentId)) &&
+          get(/databases/$(database)/documents/feedbackAttachments/$(attachmentId)).data.eventId == incoming().eventId &&
+          get(/databases/$(database)/documents/feedbackAttachments/$(attachmentId)).data.submissionId == incoming().submissionId &&
+          incoming().chunkIndex < get(/databases/$(database)/documents/feedbackAttachments/$(attachmentId)).data.chunkCount;
+        allow update: if false;
+        allow delete: if isAdmin() && isValidId(attachmentId) && isValidId(chunkId);
+      }
+    }
+
+    match /recognitionCategories/{categoryId} {
+      allow get: if isAdmin() && isValidId(categoryId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(categoryId) &&
+        isValidRecognitionCategory(incoming()) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(categoryId) &&
+        isValidRecognitionCategory(incoming()) &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'description', 'sortOrder', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    match /recognitionTemplates/{templateId} {
+      allow get: if isAdmin() && isValidId(templateId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(templateId) &&
+        isValidRecognitionTemplate(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(templateId) &&
+        isValidRecognitionTemplate(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'orientation', 'title', 'subtitle', 'wordingTemplate',
+          'fontFamily', 'primaryColor', 'accentColor', 'paperColor',
+          'customLogoDataUrl', 'signatureDataUrl', 'signatoryLabel',
+          'bestTerm', 'termBestCategories',
+          'picPdName', 'picPdTitle', 'picPdSignatureDataUrl',
+          'principalName', 'principalTitle', 'principalSignatureDataUrl',
+          'showTopic', 'showFacilitator', 'showCertificateId',
+          'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(templateId);
+    }
+
+    match /certificates/{certificateId} {
+      allow get: if isAdmin() && isValidId(certificateId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(certificateId) &&
+        !exists(/databases/$(database)/documents/certificates/$(certificateId)) &&
+        isValidIssuedCertificate(incoming()) &&
+        incoming().issuedByUid == request.auth.uid &&
+        incoming().issuedByEmail == userEmailLower() &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(certificateId);
+    }
+
+    match /voiceSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidVoiceSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidVoiceSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'enabled', 'engineMode', 'voiceId', 'browserVoiceUri',
+          'language', 'speakingRate', 'volume',
+          'englishTemplate', 'indonesianTemplate',
+          'announceOnDashboard', 'announceOnCheckIn',
+          'showReplayWelcomeOnCheckIn',
+          'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    match /liveBoardSettings/{settingId} {
+      allow get: if isAdmin() && isValidId(settingId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidLiveBoardSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+        isValidId(settingId) &&
+        isValidLiveBoardSetting(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'animationStyle', 'animationDurationMs', 'cardLayout',
+          'columnsMode', 'manualColumns', 'photoSize', 'fontSize',
+          'backgroundTheme', 'displayMode', 'rotationIntervalSec',
+          'disableAnimations', 'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    match /authorizedDevices/{deviceId} {
+      allow get: if isPrimaryOwner() && isValidId(deviceId);
+      allow list: if isPrimaryOwner();
+      allow create: if isPrimaryOwner() &&
+        isValidId(deviceId) &&
+        isValidAuthorizedDevice(incoming()) &&
+        incoming().deviceId == deviceId &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isPrimaryOwner() &&
+        isValidId(deviceId) &&
+        isValidAuthorizedDevice(incoming()) &&
+        incoming().deviceId == existing().deviceId &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'deviceName', 'userAgentSummary', 'status',
+          'authorizedBy', 'authorizedAtIso', 'lastSeenAtIso', 'revokedAtIso',
+          'updatedByUid', 'updatedAt'
+        ]);
+      allow delete: if isPrimaryOwner() && isValidId(deviceId);
+    }
+  }
+}

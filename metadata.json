@@ -1,0 +1,10 @@
+{
+  "name": "Remix Remix Remix SGM LIVE ATTENDANCE 18 Nov",
+  "description": "Mobile-first QR code live attendance check-in and administrator console for teacher workshops, seminars, meetings, and professional development sessions.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

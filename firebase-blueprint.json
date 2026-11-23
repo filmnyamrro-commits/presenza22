@@ -1,0 +1,1012 @@
+{
+  "entities": {
+    "Event": {
+      "title": "Event",
+      "description": "A workshop, seminar, meeting, or professional development session with an active QR check-in.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Display name of the workshop, seminar, or session."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Customizable session type."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional agenda or facilitator note."
+        },
+        "venue": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Room, hall, or online meeting location."
+        },
+        "eventDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Scheduled date in YYYY-MM-DD format."
+        },
+        "startTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "description": "Scheduled start time in 24-hour HH:MM format."
+        },
+        "lateCutoffTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "description": "Cutoff time in 24-hour HH:MM format after which check-ins are marked Late."
+        },
+        "cutoffTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Exact cutoff timestamp for On Time vs Late classification."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "closed"],
+          "description": "Whether the session is currently accepting participant check-ins."
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the administrator who created the event."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the event was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the event was last updated."
+        },
+        "departmentLabel": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Custom label for the Class / Department field on the participant form."
+        },
+        "departmentPresets": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Comma-separated quick-select department or class options."
+        },
+        "consentText": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Custom photo consent statement shown to participants."
+        },
+        "facilitators": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Facilitator name(s) printed on participant recognition certificates."
+        },
+        "principalName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Principal name printed on participant recognition certificates."
+        },
+        "requireParticipantLogin": {
+          "type": "boolean",
+          "description": "When true, participants must sign in with a Google email before submitting check-in."
+        },
+        "theme": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional event theme displayed on certificates and feedback forms."
+        },
+        "topic": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Optional session topic or focus area."
+        }
+      },
+      "required": [
+        "title",
+        "category",
+        "description",
+        "venue",
+        "eventDate",
+        "startTime",
+        "lateCutoffTime",
+        "cutoffTimestamp",
+        "status",
+        "createdByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "A participant attendance submission recorded with or without participant login depending on session settings.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID of the parent Event document."
+        },
+        "eventName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Snapshot of the event title at check-in time."
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Participant full name."
+        },
+        "classDepartment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Participant class, grade, or department."
+        },
+        "photoDataUrl": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 250000,
+          "description": "Compressed participant photo encoded as an image data URL."
+        },
+        "photoConsent": {
+          "type": "boolean",
+          "description": "Explicit participant consent for photo use."
+        },
+        "attendanceDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Attendance date in YYYY-MM-DD format."
+        },
+        "checkInTime": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "description": "Formatted check-in clock time."
+        },
+        "serverTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Authoritative Firestore server timestamp."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["On Time", "Late"],
+          "description": "Attendance timeliness status."
+        },
+        "lateExcuse": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Participant explanation for late arrival (required when status is Late)."
+        },
+        "participantEmail": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Verified Google email of the participant when the session requires participant login."
+        },
+        "participantUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase UID of the participant when the session requires participant login."
+        }
+      },
+      "required": [
+        "eventId",
+        "eventName",
+        "fullName",
+        "classDepartment",
+        "photoDataUrl",
+        "photoConsent",
+        "attendanceDate",
+        "checkInTime",
+        "serverTimestamp",
+        "status",
+        "lateExcuse"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized administrator document.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "addedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "addedByUid", "createdAt"]
+    },
+    "DashboardSetting": {
+      "title": "DashboardSetting",
+      "description": "Administrator live dashboard background configuration.",
+      "type": "object",
+      "properties": {
+        "backgroundDataUrl": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 450000,
+          "description": "JPEG data URL used as the live dashboard portrait background."
+        },
+        "backgroundOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Background photo visibility percentage (0 to 100)."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["backgroundDataUrl", "updatedByUid", "updatedAt"]
+    },
+    "OrganizationBranding": {
+      "title": "OrganizationBranding",
+      "description": "School or company name and uploaded logo displayed in the top-left header, QR board, and exports.",
+      "type": "object",
+      "properties": {
+        "organizationName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "School or company name shown next to the logo in the top-left position."
+        },
+        "logoDataUrl": {
+          "type": "string",
+          "maxLength": 350000,
+          "description": "Compressed PNG, JPEG, or WebP data URL of the school or company logo."
+        },
+        "publicAppUrl": {
+          "type": "string",
+          "maxLength": 250,
+          "description": "Public HTTPS production origin (e.g. Vercel URL) encoded inside generated QR codes."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["organizationName", "logoDataUrl", "updatedByUid", "updatedAt"]
+    },
+    "AuthorizedAdmin": {
+      "title": "AuthorizedAdmin",
+      "description": "Email-based administrator and teacher allowlist entry.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$",
+          "description": "Normalized lowercase Google email address authorized to access the Admin Console."
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Optional teacher or administrator name or role label."
+        },
+        "addedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the administrator who added this email."
+        },
+        "addedByEmail": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$",
+          "description": "Email address of the administrator who added this email."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the administrator email was authorized."
+        }
+      },
+      "required": ["email", "displayName", "addedByUid", "addedByEmail", "createdAt"]
+    },
+    "CertificateSetting": {
+      "title": "CertificateSetting",
+      "description": "Administrator certificate theme, element visibility & position layout, background opacity, and digital signatures.",
+      "type": "object",
+      "properties": {
+        "themeId": {
+          "type": "string",
+          "enum": [
+            "classic-navy",
+            "emerald-academic",
+            "royal-slate",
+            "crimson-crest",
+            "teal-modern"
+          ],
+          "description": "Selected visual template theme for generated PDF certificates."
+        },
+        "backgroundDataUrl": {
+          "type": "string",
+          "maxLength": 340000,
+          "description": "Optional compressed background image data URL rendered behind the certificate content."
+        },
+        "backgroundOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Certificate background photo opacity percentage (0 to 100)."
+        },
+        "facilitatorSignatureDataUrl": {
+          "type": "string",
+          "maxLength": 150000,
+          "description": "Optional transparent PNG/image data URL of the facilitator digital signature."
+        },
+        "principalSignatureDataUrl": {
+          "type": "string",
+          "maxLength": 150000,
+          "description": "Optional transparent PNG/image data URL of the principal digital signature."
+        },
+        "picPdName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Customizable name printed above the PIC of Professional Development signature line."
+        },
+        "picPdTitle": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Signatory role title (defaults to PIC of Professional Development)."
+        },
+        "principalName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Customizable name printed above the Principal signature line."
+        },
+        "principalTitle": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Signatory role title (defaults to Principal)."
+        },
+        "bestTerm": {
+          "type": "string",
+          "enum": ["none", "term1", "term2", "term3", "term4"],
+          "description": "Optional active academic term for Best Category certificate recognition."
+        },
+        "termBestCategories": {
+          "type": "object",
+          "description": "Customizable Best Category labels for Term 1 through Term 4."
+        },
+        "elements": {
+          "type": "object",
+          "description": "Visibility and (x, y) position in mm for each certificate element."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "themeId",
+        "backgroundDataUrl",
+        "backgroundOpacity",
+        "facilitatorSignatureDataUrl",
+        "principalSignatureDataUrl",
+        "elements",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "FeedbackConfig": {
+      "title": "FeedbackConfig",
+      "description": "Customizable participant feedback questions, menu statements, rating areas, categories, checklist statements, and submission schedule per event or global default.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "formHeading": { "type": "string", "maxLength": 120 },
+        "introNote": { "type": "string", "maxLength": 400 },
+        "ratingSectionTitle": { "type": "string", "maxLength": 140 },
+        "ratingSectionSubtitle": { "type": "string", "maxLength": 300 },
+        "checklistSectionTitle": { "type": "string", "maxLength": 140 },
+        "checklistSectionSubtitle": { "type": "string", "maxLength": 300 },
+        "commentQuestionLabel": { "type": "string", "maxLength": 160 },
+        "commentPlaceholder": { "type": "string", "maxLength": 240 },
+        "requireWrittenComment": { "type": "boolean" },
+        "allowAttachment": { "type": "boolean" },
+        "requireAttachment": { "type": "boolean" },
+        "attachmentLabel": { "type": "string", "maxLength": 160 },
+        "ratingCriteria": { "type": "array", "maxItems": 12 },
+        "categories": { "type": "array", "maxItems": 12 },
+        "statements": { "type": "array", "maxItems": 40 },
+        "customQuestions": { "type": "array", "maxItems": 6 },
+        "feedbackActive": { "type": "boolean" },
+        "scheduleEnabled": { "type": "boolean" },
+        "openAtIso": { "type": "string", "maxLength": 40 },
+        "closeAtIso": { "type": "string", "maxLength": 40 },
+        "openTimestamp": { "type": "string", "format": "date-time" },
+        "closeTimestamp": { "type": "string", "format": "date-time" },
+        "scheduleClosedMessage": { "type": "string", "maxLength": 300 },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "eventId",
+        "introNote",
+        "requireWrittenComment",
+        "ratingCriteria",
+        "categories",
+        "statements",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "FeedbackSubmission": {
+      "title": "FeedbackSubmission",
+      "description": "Participant feedback & evaluation response linked to an active event.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "eventTitle": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "eventDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "eventVenue": { "type": "string", "maxLength": 120 },
+        "facilitatorName": { "type": "string", "maxLength": 200 },
+        "sessionTopic": { "type": "string", "maxLength": 200 },
+        "ratings": { "type": "array", "maxItems": 12 },
+        "averageRating": { "type": "number", "minimum": 0, "maximum": 5 },
+        "selectedStatements": { "type": "array", "maxItems": 40 },
+        "writtenComment": { "type": "string", "maxLength": 1500 },
+        "customAnswers": { "type": "array", "maxItems": 6 },
+        "attachment": { "type": "object", "description": "Optional metadata for a supporting PDF, JPEG photo, or MP4/MOV video stored in feedbackAttachments." },
+        "participantName": { "type": "string", "maxLength": 100 },
+        "participantDepartment": { "type": "string", "maxLength": 100 },
+        "participantEmail": { "type": "string", "maxLength": 128 },
+        "attendanceId": { "type": "string", "maxLength": 128 },
+        "clientSubmissionToken": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "serverTimestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "eventId",
+        "eventTitle",
+        "eventDate",
+        "eventVenue",
+        "facilitatorName",
+        "sessionTopic",
+        "ratings",
+        "averageRating",
+        "selectedStatements",
+        "writtenComment",
+        "clientSubmissionToken",
+        "serverTimestamp"
+      ]
+    },
+    "FeedbackAttachment": {
+      "title": "FeedbackAttachment",
+      "description": "Metadata for an uploaded PDF, JPEG photo, or MP4/MOV video linked to a feedback submission.",
+      "type": "object",
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "mimeType": {
+          "type": "string",
+          "enum": ["application/pdf", "image/jpeg", "video/mp4", "video/quicktime"]
+        },
+        "fileCategory": {
+          "type": "string",
+          "enum": ["pdf", "image", "video"]
+        },
+        "byteSize": { "type": "number", "minimum": 1, "maximum": 5242880 },
+        "chunkCount": { "type": "number", "minimum": 1, "maximum": 24 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "submissionId",
+        "eventId",
+        "fileName",
+        "mimeType",
+        "fileCategory",
+        "byteSize",
+        "chunkCount",
+        "createdAt"
+      ]
+    },
+    "FeedbackAttachmentChunk": {
+      "title": "FeedbackAttachmentChunk",
+      "description": "Bounded base64 slice of a participant feedback attachment stored under feedbackAttachments/{attachmentId}/chunks.",
+      "type": "object",
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "chunkIndex": { "type": "number", "minimum": 0, "maximum": 23 },
+        "data": { "type": "string", "minLength": 1, "maxLength": 350000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["submissionId", "eventId", "chunkIndex", "data", "createdAt"]
+    },
+    "RecognitionCategory": {
+      "title": "RecognitionCategory",
+      "description": "Customizable recognition award category created by administrators.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 300 },
+        "sortOrder": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "sortOrder", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "RecognitionTemplate": {
+      "title": "RecognitionTemplate",
+      "description": "Editable portrait/landscape certificate designer template for participant recognition.",
+      "type": "object",
+      "properties": {
+        "orientation": { "type": "string", "enum": ["landscape", "portrait"] },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "subtitle": { "type": "string", "maxLength": 140 },
+        "wordingTemplate": { "type": "string", "minLength": 5, "maxLength": 600 },
+        "fontFamily": { "type": "string", "enum": ["times", "helvetica", "courier"] },
+        "primaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "paperColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "customLogoDataUrl": { "type": "string", "maxLength": 320000 },
+        "signatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "signatoryLabel": { "type": "string", "maxLength": 120 },
+        "bestTerm": {
+          "type": "string",
+          "enum": ["none", "term1", "term2", "term3", "term4"]
+        },
+        "termBestCategories": { "type": "object" },
+        "picPdName": { "type": "string", "maxLength": 120 },
+        "picPdTitle": { "type": "string", "maxLength": 120 },
+        "picPdSignatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "principalName": { "type": "string", "maxLength": 120 },
+        "principalTitle": { "type": "string", "maxLength": 120 },
+        "principalSignatureDataUrl": { "type": "string", "maxLength": 150000 },
+        "showTopic": { "type": "boolean" },
+        "showFacilitator": { "type": "boolean" },
+        "showCertificateId": { "type": "boolean" },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orientation",
+        "title",
+        "subtitle",
+        "wordingTemplate",
+        "fontFamily",
+        "primaryColor",
+        "accentColor",
+        "paperColor",
+        "customLogoDataUrl",
+        "signatureDataUrl",
+        "signatoryLabel",
+        "showTopic",
+        "showFacilitator",
+        "showCertificateId",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "IssuedCertificate": {
+      "title": "IssuedCertificate",
+      "description": "Generated recognition certificate persisted for history, printing, PDF re-download, and duplicate prevention.",
+      "type": "object",
+      "properties": {
+        "certificateNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "dedupeKey": { "type": "string", "minLength": 4, "maxLength": 240 },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "eventTitle": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "eventDate": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "eventVenue": { "type": "string", "maxLength": 120 },
+        "eventTheme": { "type": "string", "maxLength": 120 },
+        "eventTopic": { "type": "string", "maxLength": 200 },
+        "facilitators": { "type": "string", "maxLength": 200 },
+        "organizerName": { "type": "string", "maxLength": 120 },
+        "attendanceId": { "type": "string", "maxLength": 128 },
+        "participantName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "participantDepartment": { "type": "string", "maxLength": 100 },
+        "participantEmail": { "type": "string", "maxLength": 128 },
+        "categoryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "categoryName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "bestTerm": {
+          "type": "string",
+          "enum": ["none", "term1", "term2", "term3", "term4"]
+        },
+        "termCategoryName": { "type": "string", "maxLength": 100 },
+        "issueDate": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "selectionMethod": { "type": "string", "enum": ["manual", "evaluation"] },
+        "orientation": { "type": "string", "enum": ["landscape", "portrait"] },
+        "certificateTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "certificateSubtitle": { "type": "string", "maxLength": 140 },
+        "wordingText": { "type": "string", "minLength": 5, "maxLength": 700 },
+        "fontFamily": { "type": "string", "enum": ["times", "helvetica", "courier"] },
+        "primaryColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "paperColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "signatoryLabel": { "type": "string", "maxLength": 120 },
+        "picPdName": { "type": "string", "maxLength": 120 },
+        "picPdTitle": { "type": "string", "maxLength": 120 },
+        "principalName": { "type": "string", "maxLength": 120 },
+        "principalTitle": { "type": "string", "maxLength": 120 },
+        "issuedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "issuedByEmail": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "certificateNumber",
+        "dedupeKey",
+        "eventId",
+        "eventTitle",
+        "eventDate",
+        "eventVenue",
+        "eventTheme",
+        "eventTopic",
+        "facilitators",
+        "organizerName",
+        "attendanceId",
+        "participantName",
+        "participantDepartment",
+        "participantEmail",
+        "categoryId",
+        "categoryName",
+        "issueDate",
+        "selectionMethod",
+        "orientation",
+        "certificateTitle",
+        "certificateSubtitle",
+        "wordingText",
+        "fontFamily",
+        "primaryColor",
+        "accentColor",
+        "paperColor",
+        "signatoryLabel",
+        "issuedByUid",
+        "issuedByEmail",
+        "createdAt"
+      ]
+    },
+    "VoiceSetting": {
+      "title": "VoiceSetting",
+      "description": "Administrator AI voice check-in announcement configuration (voice, language, speed, volume, and customizable templates).",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "engineMode": { "type": "string", "enum": ["auto", "ai", "browser"] },
+        "voiceId": {
+          "type": "string",
+          "enum": [
+            "en-prof-male",
+            "en-friendly-male",
+            "en-prof-female",
+            "en-friendly-female",
+            "id-male",
+            "id-female",
+            "browser-custom"
+          ]
+        },
+        "browserVoiceUri": { "type": "string", "maxLength": 200 },
+        "language": { "type": "string", "enum": ["en-US", "id-ID"] },
+        "speakingRate": { "type": "number", "minimum": 0.6, "maximum": 1.5 },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1 },
+        "englishTemplate": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "indonesianTemplate": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "announceOnDashboard": { "type": "boolean" },
+        "announceOnCheckIn": { "type": "boolean" },
+        "showReplayWelcomeOnCheckIn": { "type": "boolean" },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "enabled",
+        "engineMode",
+        "voiceId",
+        "browserVoiceUri",
+        "language",
+        "speakingRate",
+        "volume",
+        "englishTemplate",
+        "indonesianTemplate",
+        "announceOnDashboard",
+        "announceOnCheckIn",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "LiveBoardSetting": {
+      "title": "LiveBoardSetting",
+      "description": "Administrator configuration for the Live Animated Attendance Dashboard (animations, grid layout, adaptive sizing, pagination/rotation, themes, and reduced-motion option).",
+      "type": "object",
+      "properties": {
+        "animationStyle": {
+          "type": "string",
+          "enum": ["zoom-bounce", "slide-up", "slide-side", "fade-scale"]
+        },
+        "animationDurationMs": { "type": "number", "minimum": 250, "maximum": 1500 },
+        "cardLayout": {
+          "type": "string",
+          "enum": ["portrait-card", "horizontal-tile", "compact-badge"]
+        },
+        "columnsMode": { "type": "string", "enum": ["auto", "manual"] },
+        "manualColumns": { "type": "number", "minimum": 1, "maximum": 10 },
+        "photoSize": { "type": "string", "enum": ["auto", "sm", "md", "lg", "xl"] },
+        "fontSize": { "type": "string", "enum": ["auto", "sm", "md", "lg", "xl"] },
+        "backgroundTheme": {
+          "type": "string",
+          "enum": [
+            "clean-light",
+            "slate-conference",
+            "midnight-projector",
+            "emerald-hall",
+            "warm-ivory"
+          ]
+        },
+        "displayMode": {
+          "type": "string",
+          "enum": ["fit", "auto-paginate", "rotating", "manual"]
+        },
+        "rotationIntervalSec": { "type": "number", "minimum": 4, "maximum": 60 },
+        "disableAnimations": { "type": "boolean" },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "animationStyle",
+        "animationDurationMs",
+        "cardLayout",
+        "columnsMode",
+        "manualColumns",
+        "photoSize",
+        "fontSize",
+        "backgroundTheme",
+        "displayMode",
+        "rotationIntervalSec",
+        "disableAnimations",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "AuthorizedDevice": {
+      "title": "AuthorizedDevice",
+      "description": "Device authorization audit and revocation record managed exclusively by the primary owner.",
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "userAgentSummary": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["active", "revoked"] },
+        "authorizedBy": {
+          "type": "string",
+          "enum": ["code", "owner-google", "owner-direct"]
+        },
+        "authorizedAtIso": { "type": "string", "maxLength": 64 },
+        "lastSeenAtIso": { "type": "string", "maxLength": 64 },
+        "revokedAtIso": { "type": "string", "maxLength": 64 },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "deviceId",
+        "deviceName",
+        "userAgentSummary",
+        "status",
+        "authorizedBy",
+        "authorizedAtIso",
+        "lastSeenAtIso",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Workshop, seminar, meeting, and professional development sessions."
+    },
+    "/attendances/{attendanceId}": {
+      "schema": { "$ref": "#/entities/Attendance" },
+      "description": "Participant attendance submissions linked to an active event."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Legacy UID-keyed authorized administrator accounts."
+    },
+    "/authorizedAdmins/{adminEmail}": {
+      "schema": { "$ref": "#/entities/AuthorizedAdmin" },
+      "description": "Email-keyed allowlist of authorized teachers and administrators."
+    },
+    "/dashboardSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/DashboardSetting" },
+      "description": "Live dashboard appearance settings controlled by administrators."
+    },
+    "/branding/{brandingId}": {
+      "schema": { "$ref": "#/entities/OrganizationBranding" },
+      "description": "School or company logo and display name controlled by administrators."
+    },
+    "/certificateSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/CertificateSetting" },
+      "description": "Certificate theme, element positions/visibility, background opacity, and digital signatures managed by administrators."
+    },
+    "/feedbackConfigs/{configId}": {
+      "schema": { "$ref": "#/entities/FeedbackConfig" },
+      "description": "Customizable feedback rating criteria, categories, and checklist statements per event."
+    },
+    "/feedbackSubmissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/FeedbackSubmission" },
+      "description": "Participant feedback and evaluation responses linked to an event."
+    },
+    "/feedbackAttachments/{attachmentId}": {
+      "schema": { "$ref": "#/entities/FeedbackAttachment" },
+      "description": "Supporting PDF, JPEG photo, and MP4/MOV video attachment metadata linked to feedback submissions."
+    },
+    "/feedbackAttachments/{attachmentId}/chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/FeedbackAttachmentChunk" },
+      "description": "Bounded base64 file chunks for feedback supporting attachments."
+    },
+    "/recognitionCategories/{categoryId}": {
+      "schema": { "$ref": "#/entities/RecognitionCategory" },
+      "description": "Customizable participant recognition award categories."
+    },
+    "/recognitionTemplates/{templateId}": {
+      "schema": { "$ref": "#/entities/RecognitionTemplate" },
+      "description": "Recognition certificate designer template settings (orientation, fonts, colors, wording, logo, signature)."
+    },
+    "/certificates/{certificateId}": {
+      "schema": { "$ref": "#/entities/IssuedCertificate" },
+      "description": "Issued participant recognition certificates keyed deterministically to prevent duplicates."
+    },
+    "/voiceSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/VoiceSetting" },
+      "description": "AI Voice Check-In Announcement settings configured by administrators."
+    },
+    "/liveBoardSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/LiveBoardSetting" },
+      "description": "Live Animated Attendance Dashboard layout, theme, pagination, and animation configuration managed by administrators."
+    },
+    "/authorizedDevices/{deviceId}": {
+      "schema": { "$ref": "#/entities/AuthorizedDevice" },
+      "description": "Cross-device authorization & revocation audit records controlled solely by the primary owner."
+    }
+  }
+}
