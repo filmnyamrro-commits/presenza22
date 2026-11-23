@@ -690,12 +690,64 @@ export function resolveBestTermLabel(
   return merged[key].trim() || DEFAULT_TERM_BEST_CATEGORIES[key];
 }
 
+export interface RecognitionWordingPreset {
+  id: string;
+  label: string;
+  description: string;
+  template: string;
+}
+
+export const RECOGNITION_WORDING_PRESETS: ReadonlyArray<RecognitionWordingPreset> =
+  [
+    {
+      id: 'standard',
+      label: '1. Standard Recognition (Default)',
+      description: 'Classic award phrasing with event, date, and venue',
+      template:
+        'This certificate is proudly presented to {{participant}} in recognition of being named {{category}} during "{{event}}" held on {{date}} at {{venue}}.',
+    },
+    {
+      id: 'formal-academic',
+      label: '2. Formal Academic',
+      description: 'Formal institutional commendation from the organizer',
+      template:
+        'In recognition of exemplary dedication and achievement as {{category}}, {{organizer}} hereby awards this certificate to {{participant}} for outstanding participation in "{{event}}" on {{date}} at {{venue}}.',
+    },
+    {
+      id: 'topic-focused',
+      label: '3. Workshop & Topic Focus',
+      description: 'Highlights the specific session topic alongside the event',
+      template:
+        'Awarded to {{participant}} for achieving {{category}} in the "{{event}}" session focusing on {{topic}}, conducted on {{date}} at {{venue}}.',
+    },
+    {
+      id: 'contribution',
+      label: '4. Leadership & Contribution',
+      description: 'Emphasizes active engagement and positive contribution',
+      template:
+        'With sincere appreciation for valuable contributions, active engagement, and excellence as {{category}}, this honor is presented to {{participant}} during "{{event}}" on {{date}}.',
+    },
+    {
+      id: 'facilitator-endorsed',
+      label: '5. Facilitator Endorsed',
+      description: 'Includes organizer, session topic, and facilitator credit',
+      template:
+        'Presented by {{organizer}} to {{participant}} in commendation of distinction as {{category}} in "{{event}}" ({{topic}}), facilitated by {{facilitator}} on {{date}} at {{venue}}.',
+    },
+    {
+      id: 'concise',
+      label: '6. Concise Honor',
+      description: 'Short, clean statement ideal for compact layouts',
+      template:
+        'Proudly awarded to {{participant}} as {{category}} for "{{event}}" held on {{date}} at {{venue}}.',
+    },
+  ];
+
 export const DEFAULT_RECOGNITION_TEMPLATE: RecognitionTemplateConfig = {
   orientation: 'landscape',
   title: 'CERTIFICATE OF RECOGNITION',
   subtitle: 'AWARDED FOR EXEMPLARY PARTICIPATION & ACHIEVEMENT',
-  wordingTemplate:
-    'This certificate is proudly presented to {{participant}} in recognition of being named {{category}} during "{{event}}" held on {{date}} at {{venue}}.',
+  wordingTemplate: RECOGNITION_WORDING_PRESETS[0].template,
   fontFamily: 'times',
   primaryColor: '#0F172A',
   accentColor: '#B45309',
